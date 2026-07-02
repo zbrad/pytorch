@@ -1524,6 +1524,7 @@ if(NOT INTERN_BUILD_MOBILE)
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libs" FORCE)
     set(AT_KLEIDIAI_ENABLED 1)
     set(KLEIDIAI_BUILD_TESTS OFF) # Disable building KLEIDIAI tests
+    set(KLEIDIAI_BUILD_SME ${USE_KLEIDIAI_SME}) # e.g. OFF for CPUs without SME, like GB10
     set(KLEIDIAI_SRC "${PROJECT_SOURCE_DIR}/third_party/kleidiai")
     add_subdirectory(${KLEIDIAI_SRC})
     list(APPEND Caffe2_DEPENDENCY_LIBS kleidiai)
