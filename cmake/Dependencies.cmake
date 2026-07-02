@@ -1532,9 +1532,18 @@ if(NOT INTERN_BUILD_MOBILE)
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libs" FORCE)
     set(AT_KLEIDIAI_ENABLED 1)
     set(KLEIDIAI_BUILD_TESTS OFF) # Disable building KLEIDIAI tests
-    set(KLEIDIAI_BUILD_SME ${USE_KLEIDIAI_SME}) # e.g. OFF for CPUs without SME, like GB10
     set(KLEIDIAI_SRC "${PROJECT_SOURCE_DIR}/third_party/kleidiai")
     add_subdirectory(${KLEIDIAI_SRC})
+    if(NOT USE_KLEIDIAI_SME)
+      # CPUs without SME (e.g. GB10's Cortex-X925/A725) don't need these kernels;
+      # drop them from the target rather than patching the kleidiai submodule
+      # (all kleidiai SME source files have "sme" in their name, and nothing
+      # outside those files references SME symbols).
+      get_target_property(__kleidiai_srcs kleidiai SOURCES)
+      list(FILTER __kleidiai_srcs EXCLUDE REGEX "sme")
+      set_target_properties(kleidiai PROPERTIES SOURCES "${__kleidiai_srcs}")
+      unset(__kleidiai_srcs)
+    endif()
     list(APPEND Caffe2_DEPENDENCY_LIBS kleidiai)
     # Recover build options.
     set(BUILD_SHARED_LIBS ${TEMP_BUILD_SHARED_LIBS} CACHE BOOL "Build shared libs" FORCE)
