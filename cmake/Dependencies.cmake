@@ -1528,11 +1528,14 @@ if(NOT INTERN_BUILD_MOBILE)
     add_subdirectory(${KLEIDIAI_SRC})
     if(NOT USE_KLEIDIAI_SME)
       # CPUs without SME (e.g. GB10's Cortex-X925/A725) don't need these kernels;
-      # drop them from the target rather than patching the kleidiai submodule
-      # (all kleidiai SME source files have "sme" in their name, and nothing
-      # outside those files references SME symbols).
+      # drop them from the target rather than patching the kleidiai submodule.
+      # All kleidiai SME source files carry a "_sme" or "_sme2" token bounded by
+      # "_"/"." (e.g. "..._sme_asm.S", "..._sme2_mopa.c"), and nothing outside
+      # those files references SME symbols. Match that bounded token rather than
+      # a bare "sme" substring, so an unrelated future filename that merely
+      # contains "sme" isn't accidentally dropped too.
       get_target_property(__kleidiai_srcs kleidiai SOURCES)
-      list(FILTER __kleidiai_srcs EXCLUDE REGEX "sme")
+      list(FILTER __kleidiai_srcs EXCLUDE REGEX "_sme[0-9]*[_.]")
       set_target_properties(kleidiai PROPERTIES SOURCES "${__kleidiai_srcs}")
       unset(__kleidiai_srcs)
     endif()
