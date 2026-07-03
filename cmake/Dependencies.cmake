@@ -1535,9 +1535,24 @@ if(NOT INTERN_BUILD_MOBILE)
       # a bare "sme" substring, so an unrelated future filename that merely
       # contains "sme" isn't accidentally dropped too.
       get_target_property(__kleidiai_srcs kleidiai SOURCES)
+      list(LENGTH __kleidiai_srcs __kleidiai_srcs_before)
       list(FILTER __kleidiai_srcs EXCLUDE REGEX "_sme[0-9]*[_.]")
+      list(LENGTH __kleidiai_srcs __kleidiai_srcs_after)
+      math(EXPR __kleidiai_srcs_removed "${__kleidiai_srcs_before} - ${__kleidiai_srcs_after}")
+      if(__kleidiai_srcs_removed EQUAL 0)
+        message(WARNING "USE_KLEIDIAI_SME is OFF, but no KleidiAI SME/SME2 source "
+                         "files matched the exclusion filter -- kleidiai may have "
+                         "renamed its SME files upstream, so SME kernels are still "
+                         "being built.")
+      else()
+        message(STATUS "  Excluded ${__kleidiai_srcs_removed} KleidiAI SME/SME2 "
+                        "source file(s) from the build (USE_KLEIDIAI_SME=OFF)")
+      endif()
       set_target_properties(kleidiai PROPERTIES SOURCES "${__kleidiai_srcs}")
       unset(__kleidiai_srcs)
+      unset(__kleidiai_srcs_before)
+      unset(__kleidiai_srcs_after)
+      unset(__kleidiai_srcs_removed)
     endif()
     list(APPEND Caffe2_DEPENDENCY_LIBS kleidiai)
     # Recover build options.
