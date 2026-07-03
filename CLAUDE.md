@@ -28,6 +28,13 @@ Always check local memory for build configuration (env vars, incremental-build s
 All build (both codegen, C++ and python) is done via `pip install -e . -v --no-build-isolation`.
 You should NEVER run any other command to build PyTorch.
 
+**Packaging exception**: producing a distributable wheel from an already-built
+editable tree (e.g. `python -m build --wheel --no-isolation`) is allowed,
+since it does not recompile anything if the editable install is up to date.
+Before packaging, confirm with the user that the tree is current (re-run the
+`pip install -e .` build first if there's any doubt) — this exception covers
+packaging only, not a substitute build path for compiling.
+
 # Testing
 
 Use our test class and test runner:
