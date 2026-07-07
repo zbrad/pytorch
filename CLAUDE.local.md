@@ -15,3 +15,9 @@ packaging step regenerates `torch/version.py` too, and without
 `PYTORCH_BUILD_VERSION` set in that shell it silently overwrites it with an
 auto-generated version that matches neither the wheel filename nor what was
 actually built and tested (this happened on 2026-07-06).
+
+If `agent_space/gb10_build_version.env` doesn't exist (it's gitignored and
+doesn't survive between sessions/checkouts), do not reconstruct its contents
+by hand — re-run `agent_space/build_gb10.sh` first to regenerate it against
+the current HEAD, then source it. This happened on 2026-07-07: the file was
+missing at the start of a session with a clean, already-built tree.
