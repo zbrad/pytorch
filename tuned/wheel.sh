@@ -46,6 +46,18 @@ echo "=========================================="
 echo "PYTORCH_BUILD_VERSION: ${PYTORCH_BUILD_VERSION}"
 echo ""
 
+# libtorch_cuda.so is where TORCH_CUDA_ARCH_LIST's actual device code
+# lands -- verify + stamp it before packaging, same discipline as
+# raft/cuvs/faiss's tuned/wheel.sh|package.sh.
+TORCH_CUDA_SO="${REPO_ROOT}/torch/lib/libtorch_cuda.so"
+if [[ -f "${TORCH_CUDA_SO}" ]]; then
+    gpu_tuned_verify_arch "${TORCH_CUDA_SO}"
+    embed_build_info "${TORCH_CUDA_SO}" "${GPU_TUNED_VARIANT}" "torch" "${PYTORCH_BUILD_VERSION}" "${GPU_TUNED_HW_LABEL}"
+else
+    echo "ERROR: ${TORCH_CUDA_SO} not found -- run tuned/build.sh ${GPU_TUNED_VARIANT} first." >&2
+    exit 1
+fi
+
 pip install --upgrade build
 rm -rf "${REPO_ROOT}/dist"
 python3 -m build --wheel --no-isolation
