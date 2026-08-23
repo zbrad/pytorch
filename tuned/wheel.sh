@@ -51,7 +51,7 @@ echo ""
 # raft/cuvs/faiss's tuned/wheel.sh|package.sh.
 TORCH_CUDA_SO="${REPO_ROOT}/torch/lib/libtorch_cuda.so"
 if [[ -f "${TORCH_CUDA_SO}" ]]; then
-    gpu_tuned_verify_arch "${TORCH_CUDA_SO}"
+    gpu_tuned_verify_arch "${TORCH_CUDA_SO}" "${GPU_TUNED_TORCH_ARCH}"
     embed_build_info "${TORCH_CUDA_SO}" "${GPU_TUNED_VARIANT}" "torch" "${PYTORCH_BUILD_VERSION}" "${GPU_TUNED_HW_LABEL}"
 else
     echo "ERROR: ${TORCH_CUDA_SO} not found -- run tuned/build.sh ${GPU_TUNED_VARIANT} first." >&2
