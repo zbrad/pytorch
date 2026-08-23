@@ -76,23 +76,14 @@ echo "[tuned/env] GPU_TUNED_VARIANT=${GPU_TUNED_VARIANT} TORCH_CUDA_ARCH_LIST=${
 # fleet name their arch var differently).
 
 # embed_build_info <so_path> <variant> <package> <version> [hw_label] —
-# embeds a greppable build-info string into a custom ELF section
-# (.pytorch_build_info) on the given .so, readable later via
-# `readelf -p .pytorch_build_info <so>` or plain `strings`. Safe at
-# runtime: a custom section with no program-header entry is simply
-# ignored by the dynamic loader. Same technique/name as zbrad/raft's,
-# zbrad/cuvs's, and zbrad/faiss's tuned/env.sh equivalents.
+# thin wrapper over gpu_tuned_embed_build_info (common.sh) that pins the
+# section name to .pytorch_build_info (this repo's pre-existing name,
+# via the explicit [section-name] override -- otherwise the shared
+# function would derive .torch_build_info from the "torch" package arg
+# this repo's call sites pass, a rename), while keeping the real package
+# name ("torch") in the message.
 embed_build_info() {
-    local so_path="$1" variant="$2" package="$3" version="$4" hw_label="${5:-${2}}"
-    local tmp
-    tmp="$(mktemp)"
-    echo "pytorch-${variant} build: ${package} v${version} (${hw_label}), https://github.com/zbrad/pytorch, built $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${tmp}"
-    # Idempotent: objcopy --add-section on a section name that already
-    # exists (e.g. re-packaging without a clean) empirically corrupts its
-    # own in-place rewrite ("file format not recognized" on its own temp
-    # output) -- strip any prior stamp first. Same fix as the other repos'
-    # tuned/env.sh, hit for real running a live verification.
-    objcopy --remove-section .pytorch_build_info "${so_path}" 2>/dev/null || true
-    objcopy --add-section .pytorch_build_info="${tmp}" "${so_path}"
-    rm -f "${tmp}"
+    local so_path="$1" variant="$2" package="$3" version="$4" hw_label="$5"
+    gpu_tuned_embed_build_info "${so_path}" "${variant}" "${package}" "${version}" \
+        "${hw_label}" "https://github.com/zbrad/pytorch" "pytorch_build_info"
 }
