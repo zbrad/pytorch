@@ -71,11 +71,8 @@ RELEASE_TITLE="PyTorch ${PYTORCH_BUILD_VERSION} — ${GPU_TUNED_HW_LABEL} wheel"
 
 echo ""
 echo "Publishing wheel to GitHub release ${RELEASE_TAG}..."
-gh release create "${RELEASE_TAG}" \
-    --repo zbrad/pytorch \
-    --title "${RELEASE_TITLE}" \
-    --target "tuned-builds" \
-    --notes "torch ${PYTORCH_BUILD_VERSION} wheel for ${GPU_TUNED_HW_LABEL}, single-arch (TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST}), CUDA ${CUDA_HOME:-unknown}." \
+gpu_tuned_publish_release "zbrad/pytorch" "${RELEASE_TAG}" "${RELEASE_TITLE}" \
+    "torch ${PYTORCH_BUILD_VERSION} wheel for ${GPU_TUNED_HW_LABEL}, single-arch (TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST}), CUDA ${CUDA_HOME:-unknown}." \
     "${WHEEL}#$(basename "${WHEEL}")"
 
 echo ""
