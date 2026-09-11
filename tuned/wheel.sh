@@ -99,7 +99,7 @@ echo "Built wheel: $(basename "${WHEEL}") ($(du -sh "${WHEEL}" | awk '{print $1}
 # segment already carries variant/cuda/tuning-count, so appending them
 # again would just duplicate them in the tag.
 RELEASE_TAG="v${PYTORCH_BUILD_VERSION}"
-RELEASE_TITLE="PyTorch ${PYTORCH_BUILD_VERSION} (${GIT_SHA}) — ${GPU_TUNED_HW_LABEL} wheel"
+RELEASE_TITLE="PyTorch ${BASE_VERSION} — ${GPU_TUNED_VARIANT} tuning-v${TUNED_COMMIT_COUNT} (cu${CUDA_VERSION_COMPACT}, ${GIT_SHA}) — ${GPU_TUNED_HW_LABEL} wheel"
 
 echo ""
 echo "Publishing wheel to GitHub release ${RELEASE_TAG}..."
