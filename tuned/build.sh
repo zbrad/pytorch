@@ -19,7 +19,19 @@ source "${REPO_ROOT}/tuned/env.sh" "${GPU_TUNED_ARG_VARIANT}"
 command -v python3 &>/dev/null || { echo "ERROR: python3 not found on PATH." >&2; exit 1; }
 
 VENV_DIR="${REPO_ROOT}/.venv-${GPU_TUNED_VARIANT}"
-[[ -d "${VENV_DIR}" ]] || python3 -m venv "${VENV_DIR}"
+if [[ "${GPU_TUNED_CLEAN_VENV:-}" == "1" && -d "${VENV_DIR}" ]]; then
+    echo "GPU_TUNED_CLEAN_VENV=1: removing ${VENV_DIR} for a clean rebuild"
+    rm -rf "${VENV_DIR}"
+fi
+if [[ -d "${VENV_DIR}" ]]; then
+    # Reusing an existing venv (the default -- this is a multi-hour
+    # compile, not something to redo every run) -- verify it wasn't
+    # copied/contaminated from another repo before building on top of it.
+    # Set GPU_TUNED_CLEAN_VENV=1 to force a fresh venv instead.
+    gpu_tuned_verify_venv "${VENV_DIR}" "${REPO_ROOT}"
+else
+    python3 -m venv "${VENV_DIR}"
+fi
 # shellcheck source=/dev/null
 source "${VENV_DIR}/bin/activate"
 
