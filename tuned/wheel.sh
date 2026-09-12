@@ -100,7 +100,7 @@ WHEEL_SO="$(find "${UNPACK_DIR}" -name libtorch_cuda.so)"
 [[ -z "${WHEEL_SO}" ]] && { echo "ERROR: libtorch_cuda.so not found inside ${WHEEL}." >&2; exit 1; }
 gpu_tuned_verify_arch "${WHEEL_SO}" "${GPU_TUNED_TORCH_ARCH}"
 embed_build_info "${WHEEL_SO}" "${GPU_TUNED_VARIANT}" "torch" "${PYTORCH_BUILD_VERSION}" "${GPU_TUNED_HW_LABEL}"
-gpu_tuned_verify_build_info "${WHEEL_SO}" "torch" "${PYTORCH_BUILD_VERSION}"
+gpu_tuned_verify_build_info "${WHEEL_SO}" "torch" "${PYTORCH_BUILD_VERSION}" "pytorch_build_info"
 rm -f "${WHEEL}"
 UNPACKED_CONTENT_DIR="$(find "${UNPACK_DIR}" -maxdepth 1 -mindepth 1 -type d)"
 python3 -m wheel pack "${UNPACKED_CONTENT_DIR}" --dest-dir "${REPO_ROOT}/dist"
