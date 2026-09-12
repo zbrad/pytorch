@@ -76,25 +76,37 @@ echo "=========================================="
 echo "PYTORCH_BUILD_VERSION: ${PYTORCH_BUILD_VERSION}"
 echo ""
 
-# libtorch_cuda.so is where TORCH_CUDA_ARCH_LIST's actual device code
-# lands -- verify + stamp it before packaging, same discipline as
-# raft/cuvs/faiss's tuned/wheel.sh|package.sh.
-TORCH_CUDA_SO="${REPO_ROOT}/torch/lib/libtorch_cuda.so"
-if [[ -f "${TORCH_CUDA_SO}" ]]; then
-    gpu_tuned_verify_arch "${TORCH_CUDA_SO}" "${GPU_TUNED_TORCH_ARCH}"
-    embed_build_info "${TORCH_CUDA_SO}" "${GPU_TUNED_VARIANT}" "torch" "${PYTORCH_BUILD_VERSION}" "${GPU_TUNED_HW_LABEL}"
-else
-    echo "ERROR: ${TORCH_CUDA_SO} not found -- run tuned/build.sh ${GPU_TUNED_VARIANT} first." >&2
-    exit 1
-fi
-
-pip install --upgrade build
+pip install --upgrade build wheel
 rm -rf "${REPO_ROOT}/dist"
 python3 -m build --wheel --no-isolation
 
 WHEEL="$(ls "${REPO_ROOT}"/dist/torch-*.whl 2>/dev/null | head -1)"
 [[ -z "${WHEEL}" ]] && { echo "ERROR: no wheel found in dist/" >&2; exit 1; }
 echo "Built wheel: $(basename "${WHEEL}") ($(du -sh "${WHEEL}" | awk '{print $1}'))"
+
+# libtorch_cuda.so is where TORCH_CUDA_ARCH_LIST's actual device code
+# lands -- verify + stamp it here, on the wheel's OWN contents, not a
+# pre-build copy: python -m build's own fresh `cmake --install` (into a
+# throwaway temp prefix) and its subsequent RPATH-rewrite pass both
+# discard any section added to a pre-build .so, confirmed empirically --
+# a test marker stamped before the build was completely absent afterward,
+# tried against both the repo-root copy and the canonical build/lib/ CMake
+# output. Unpack -> stamp -> repack (regenerates RECORD correctly, unlike
+# a raw zip edit) is the only path that actually reaches what ships.
+echo "Stamping build-info into the wheel's own libtorch_cuda.so"
+UNPACK_DIR="$(mktemp -d)"
+python3 -m wheel unpack "${WHEEL}" --dest "${UNPACK_DIR}"
+WHEEL_SO="$(find "${UNPACK_DIR}" -name libtorch_cuda.so)"
+[[ -z "${WHEEL_SO}" ]] && { echo "ERROR: libtorch_cuda.so not found inside ${WHEEL}." >&2; exit 1; }
+gpu_tuned_verify_arch "${WHEEL_SO}" "${GPU_TUNED_TORCH_ARCH}"
+embed_build_info "${WHEEL_SO}" "${GPU_TUNED_VARIANT}" "torch" "${PYTORCH_BUILD_VERSION}" "${GPU_TUNED_HW_LABEL}"
+gpu_tuned_verify_build_info "${WHEEL_SO}" "torch" "${PYTORCH_BUILD_VERSION}"
+rm -f "${WHEEL}"
+UNPACKED_CONTENT_DIR="$(find "${UNPACK_DIR}" -maxdepth 1 -mindepth 1 -type d)"
+python3 -m wheel pack "${UNPACKED_CONTENT_DIR}" --dest-dir "${REPO_ROOT}/dist"
+rm -rf "${UNPACK_DIR}"
+WHEEL="$(ls "${REPO_ROOT}"/dist/torch-*.whl 2>/dev/null | head -1)"
+echo "Re-packed with build-info stamp: $(basename "${WHEEL}")"
 
 # No separate -variant-cu suffix here: PYTORCH_BUILD_VERSION's own local
 # segment already carries variant/cuda/tuning-count, so appending them
