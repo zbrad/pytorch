@@ -52,6 +52,51 @@ pip install --upgrade pip
 [ -f requirements.txt ] && pip install -r requirements.txt
 pip install "typing-extensions>=4.10.0" "scikit-build-core>=1.0"
 
+# third_party/nccl is a nested checkout, not a tracked git submodule of
+# this repo (third_party/nccl/ is gitignored here) -- a local fix there
+# is otherwise invisible to `git status` and silently lost on a fresh
+# clone or submodule reset. This applies tuned/patches/nccl-ldmc-arch-gate.patch
+# (checked in, so it IS durable/reproducible) every build, loudly, so it's
+# never silently missing: without it, NCCL's device/Makefile unconditionally
+# compiles sm_100f/sm_100a "LDMC" multicast device code into every build
+# with CUDA >= 12.7 regardless of TORCH_CUDA_ARCH_LIST, breaking this
+# fleet's single-arch invariant with a fat binary (caught by
+# gpu_tuned_verify_arch downstream in wheel.sh, but this fixes the root
+# cause instead of just detecting it). See tuned/patches/nccl-ldmc-arch-gate.patch
+# for the full rationale.
+NCCL_MAKEFILE="${REPO_ROOT}/third_party/nccl/src/device/Makefile"
+NCCL_PATCH="${REPO_ROOT}/tuned/patches/nccl-ldmc-arch-gate.patch"
+echo "=========================================="
+echo "NCCL LDMC arch-gate patch check"
+echo "=========================================="
+if [[ ! -f "${NCCL_MAKEFILE}" ]]; then
+    echo "WARNING: ${NCCL_MAKEFILE} not found (third_party/nccl not yet" >&2
+    echo "  checked out) -- cannot apply the NCCL LDMC arch-gate patch this run." >&2
+    echo "  gpu_tuned_verify_arch in wheel.sh will still catch a fat sm_100" >&2
+    echo "  binary if NCCL's build ends up unpatched -- but if it does, rerun" >&2
+    echo "  this script (third_party/nccl should exist by then) rather than" >&2
+    echo "  publishing an unverified wheel." >&2
+elif grep -q "zbrad/pytorch tuned-builds: gate LDMC" "${NCCL_MAKEFILE}"; then
+    echo "OK: NCCL LDMC arch-gate patch already applied."
+else
+    echo "APPLYING LOCAL PATCH: NCCL LDMC/multicast FP8 kernel gencode gate" >&2
+    echo "  (fat sm_100+${GPU_TUNED_TORCH_ARCH} binary fix -- see" >&2
+    echo "  tuned/patches/nccl-ldmc-arch-gate.patch for the full story)." >&2
+    if patch -p1 -d "${REPO_ROOT}/third_party/nccl" < "${NCCL_PATCH}"; then
+        echo "OK: NCCL LDMC arch-gate patch applied."
+    else
+        echo "ERROR: NCCL LDMC arch-gate patch FAILED to apply -- upstream NCCL" >&2
+        echo "  likely changed src/device/Makefile since this patch was written." >&2
+        echo "  Without this fix, the build will silently embed unreachable" >&2
+        echo "  sm_100 device code (dead on this GPU, but breaks the single-arch" >&2
+        echo "  invariant gpu_tuned_verify_arch checks). Re-derive the patch by" >&2
+        echo "  hand against the new Makefile before proceeding -- do not skip" >&2
+        echo "  this and hope wheel.sh's verify catches it; fix it here instead." >&2
+        exit 1
+    fi
+fi
+echo ""
+
 echo "Building pytorch (this will take a long time)..."
 pip install --no-build-isolation -v -e .
 
