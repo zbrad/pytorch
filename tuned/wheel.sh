@@ -47,10 +47,10 @@ GIT_SHA="$(git rev-parse --short HEAD)"
 # fetch-and-rebuild flow that produced this checkout, so this is genuinely
 # "commits ahead of upstream," not a stray branch reference.
 #
-# Surfaced as "tuning-vN" in the local version segment below, not a
+# Surfaced as "tuning.N" in the local version segment below, not a
 # `.devN` release-segment -- same label llama.cpp's install.sh uses for
 # its own pinned-tooling tag, but counting differently: llama.cpp bumps
-# its tuning-vN by hand and only when tooling changes (its tuned-builds
+# its tuning.N by hand and only when tooling changes (its tuned-builds
 # has no common ancestor with upstream/master at all -- verified via
 # `git merge-base`, likely a history-recovery artifact -- so main..HEAD
 # isn't even computable there). Here it's this exact commit count, always.
@@ -67,7 +67,8 @@ GIT_SHA="$(git rev-parse --short HEAD)"
 # and suspenders, from GIT_SHA in the release title below.
 TUNED_COMMIT_COUNT="$(git rev-list --count main..HEAD)"
 
-export PYTORCH_BUILD_VERSION="${BASE_VERSION}+${GPU_TUNED_VARIANT}.cu${CUDA_VERSION_COMPACT}.tuning-v${TUNED_COMMIT_COUNT}"
+PYTORCH_LOCAL_VERSION="$(gpu_tuned_local_version "${GPU_TUNED_VARIANT}" "${CUDA_VERSION_COMPACT}" "${TUNED_COMMIT_COUNT}")"
+export PYTORCH_BUILD_VERSION="${BASE_VERSION}+${PYTORCH_LOCAL_VERSION}"
 export PYTORCH_BUILD_NUMBER=1
 
 echo "=========================================="
@@ -112,7 +113,7 @@ echo "Re-packed with build-info stamp: $(basename "${WHEEL}")"
 # segment already carries variant/cuda/tuning-count, so appending them
 # again would just duplicate them in the tag.
 RELEASE_TAG="v${PYTORCH_BUILD_VERSION}"
-RELEASE_TITLE="PyTorch ${BASE_VERSION} — ${GPU_TUNED_VARIANT} tuning-v${TUNED_COMMIT_COUNT} (cu${CUDA_VERSION_COMPACT}, ${GIT_SHA}) — ${GPU_TUNED_HW_LABEL} wheel"
+RELEASE_TITLE="PyTorch ${BASE_VERSION} — ${GPU_TUNED_VARIANT} tuning.${TUNED_COMMIT_COUNT} (cu${CUDA_VERSION_COMPACT}, ${GIT_SHA}) — ${GPU_TUNED_HW_LABEL} wheel"
 
 echo ""
 echo "Publishing wheel to GitHub release ${RELEASE_TAG}..."
