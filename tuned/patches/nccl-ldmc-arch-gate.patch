@@ -1,0 +1,76 @@
+From ee602b0178ff24b01df14339cd64ce87be0b08cb Mon Sep 17 00:00:00 2001
+From: Brad Merrill <brad_merrill@hotmail.com>
+Date: Fri, 18 Sep 2026 01:15:14 -0700
+Subject: [PATCH] device: compile LDMC/multicast FP8 kernels for the caller's
+ NVCC_GENCODE, not a fixed datacenter-Blackwell target
+
+Upstream gated NVCC_GENCODE_LDMC_FP8 purely on CUDA toolkit version
+(>=12.7 -> sm_100f), unconditionally compiling sm_100f/sm_100a datacenter-
+Blackwell multicast device code into every build regardless of the actual
+target GPU -- breaking single-arch tuned builds (GB10/sm_121a, no
+NVSwitch) with a fat multi-arch binary.
+
+Confirmed via a minimal isolated repro (generate.py + two nvcc compiles,
+no full build needed) that the generated kernel source already has a
+correct runtime-dispatch guard for every arch in generate.py's
+specific_sms list (121a included), and compiling for e.g. compute_121a
+produces a real, correctly-defined symbol -- not a compile failure. An
+earlier attempt that instead blanked NVCC_GENCODE_LDMC_FP8 when
+compute_100 wasn't requested broke import torch at runtime (undefined
+symbol) because generate.py's dispatch table references the kernel
+unconditionally; this direct-assignment version avoids that since the
+symbol always gets a real definition matching whatever NVCC_GENCODE
+actually asks for.
+
+Filed upstream: https://github.com/NVIDIA/nccl/issues/2420
+
+Assisted-by: Claude
+---
+ src/device/Makefile | 31 ++++++++++++++++++++++++-------
+ 1 file changed, 24 insertions(+), 7 deletions(-)
+
+diff --git a/src/device/Makefile b/src/device/Makefile
+index ccaec11..da3cef8 100644
+--- a/src/device/Makefile
++++ b/src/device/Makefile
+@@ -39,13 +39,30 @@ define COMPILE
+  $(call COMPILE$(or $3,$(suffix $2)),$1,$2)
+ endef
+ 
+-ifeq ($(shell echo "$$((1000*$(CUDA_MAJOR) + 10*$(CUDA_MINOR) >= 12090))"),1)
+-	NVCC_GENCODE_LDMC_FP8 = -gencode=arch=compute_100f,code=sm_100f
+-else ifeq ($(shell echo "$$((1000*$(CUDA_MAJOR) + 10*$(CUDA_MINOR) >= 12070))"),1)
+-  NVCC_GENCODE_LDMC_FP8 = -gencode=arch=compute_100a,code=sm_100a
+-else
+-	NVCC_GENCODE_LDMC_FP8 =
+-endif
++# zbrad/pytorch tuned-builds: compile LDMC/multicast FP8 kernels for the
++# actual caller-requested NVCC_GENCODE instead of a fixed CUDA-version-
++# gated datacenter-Blackwell target (upstream's original logic below,
++# preserved in a comment for reference). Upstream unconditionally
++# compiled these for sm_100f/sm_100a on CUDA >= 12.7 regardless of the
++# real target arch, breaking single-arch tuned builds (e.g. GB10/sm_121a)
++# with a fat multi-arch binary -- caught by gpu_tuned_verify_arch.
++# Confirmed safe: the generated kernel source's own runtime-dispatch
++# guard already lists every arch in generate.py's `specific_sms` (121a
++# included), and compiling for e.g. compute_121a produces a real,
++# correctly-defined symbol, not a compile failure -- verified directly
++# with a minimal single-file nvcc repro before applying this. Filed
++# upstream: https://github.com/NVIDIA/nccl/issues/2420 -- revert this
++# patch (and tuned/build.sh's hook applying it) once that's fixed there.
++#
++# Upstream's original (CUDA-version-only, ignores NVCC_GENCODE):
++#   ifeq ($(shell echo "$$((1000*$(CUDA_MAJOR) + 10*$(CUDA_MINOR) >= 12090))"),1)
++#   	NVCC_GENCODE_LDMC_FP8 = -gencode=arch=compute_100f,code=sm_100f
++#   else ifeq ($(shell echo "$$((1000*$(CUDA_MAJOR) + 10*$(CUDA_MINOR) >= 12070))"),1)
++#     NVCC_GENCODE_LDMC_FP8 = -gencode=arch=compute_100a,code=sm_100a
++#   else
++#   	NVCC_GENCODE_LDMC_FP8 =
++#   endif
++NVCC_GENCODE_LDMC_FP8 = $(NVCC_GENCODE)
+ 
+ define COMPILE_SYM
+ @$(SAY) "Compiling" $2;\
+-- 
+2.43.0
+
