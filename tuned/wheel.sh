@@ -65,7 +65,7 @@ GIT_SHA="$(git rev-parse --short HEAD)"
 # The exact commit is still fully recoverable from TUNED_COMMIT_COUNT
 # against tuned-builds' own history (barring another rewrite) and, belt
 # and suspenders, from GIT_SHA in the release title below.
-TUNED_COMMIT_COUNT="$(git rev-list --count main..HEAD)"
+TUNED_COMMIT_COUNT="$(gpu_tuned_tuning_count)"
 
 PYTORCH_LOCAL_VERSION="$(gpu_tuned_local_version "${GPU_TUNED_VARIANT}" "${CUDA_VERSION_COMPACT}" "${TUNED_COMMIT_COUNT}")"
 export PYTORCH_BUILD_VERSION="${BASE_VERSION}+${PYTORCH_LOCAL_VERSION}"
