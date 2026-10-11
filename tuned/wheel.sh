@@ -34,40 +34,22 @@ source "${VENV_DIR}/bin/activate"
 # this ourselves -- it only moves when upstream's version.txt does, which
 # can sit flat across many of our own rebuild cycles -- so it can't carry
 # "how far is this build from the last one" on its own. That's what the
-# local-version segment below (variant/cuda/tuning count) is for.
+# local-version segment below (variant/cuda/date) is for.
 BASE_VERSION="$(sed -E 's/[a-z]+[0-9]+$//' "${REPO_ROOT}/version.txt" | tr -d '[:space:]')"
 GIT_SHA="$(git rev-parse --short HEAD)"
-# Commits on tuned-builds *since it diverged from main* (main..HEAD), not
-# total HEAD history: total history is dominated by upstream's own commit
-# count (hundreds of thousands, moving on every fetch-and-merge regardless
-# of whether any of our own code changed) and would swamp the one signal
-# this is actually for -- how much of *our* tuned-builds work (scripts,
-# patches, conflict resolutions) has landed since an earlier wheel was
-# built. `main` is kept fast-forwarded to upstream/main by the same
-# fetch-and-rebuild flow that produced this checkout, so this is genuinely
-# "commits ahead of upstream," not a stray branch reference.
-#
-# Surfaced as "tuning.N" in the local version segment below, not a
-# `.devN` release-segment -- same label llama.cpp's install.sh uses for
-# its own pinned-tooling tag, but counting differently: llama.cpp bumps
-# its tuning.N by hand and only when tooling changes (its tuned-builds
-# has no common ancestor with upstream/master at all -- verified via
-# `git merge-base`, likely a history-recovery artifact -- so main..HEAD
-# isn't even computable there). Here it's this exact commit count, always.
-#
-# No `.devN` marker and no `+git<sha>`: BASE_VERSION alone reads as if it
-# were a final upstream release (e.g. "2.15.0"), which would be a real
-# resolver hazard for a PyPI-distributed package -- but GB10/aarch64/sm121
-# has no official upstream wheel at all (see this file's header), nothing
-# else can claim that exact version for this platform, and installs here
-# only ever happen via `@ URL` (requirements/gb10.txt in vllm et al.), not
-# index resolution, so no other install path can collide with it either.
-# The exact commit is still fully recoverable from TUNED_COMMIT_COUNT
-# against tuned-builds' own history (barring another rewrite) and, belt
-# and suspenders, from GIT_SHA in the release title below.
-TUNED_COMMIT_COUNT="$(gpu_tuned_tuning_count)"
-
-PYTORCH_LOCAL_VERSION="$(gpu_tuned_local_version "${GPU_TUNED_VARIANT}" "${CUDA_VERSION_COMPACT}" "${TUNED_COMMIT_COUNT}")"
+# Local-version label: <variant>.cu<cuda>.<YYYYMMDD>[.<seq>], e.g.
+# gb10.cu133.20261011 (docs/VERSIONING.md in zbrad/tuned-common). The date is HEAD's
+# UTC committer date, so rebuilding a commit reproduces its label; the sequence is the
+# lowest unused one among this repo's release tags (GPU_TUNED_LABEL_SEQ=0 skips that
+# lookup for a dev build that will never be published). This replaces the old
+# tuning.<N> commit counter, which a release-branch merge could inflate silently.
+# BASE_VERSION stays upstream's, so the wheel still satisfies torch==<upstream> pins.
+PYTORCH_LOCAL_VERSION="$(gpu_tuned_build_local_version "${GPU_TUNED_VARIANT}" "${REPO_ROOT}")" || exit 1
+[[ "${PYTORCH_LOCAL_VERSION}" == *".cu${CUDA_VERSION_COMPACT}."* ]] || {
+    echo "ERROR: label ${PYTORCH_LOCAL_VERSION} disagrees with CUDA_VERSION_COMPACT=${CUDA_VERSION_COMPACT}" \
+         "(from ${CUDA_HOME}); nvcc and the directory name must report the same release." >&2
+    exit 1
+}
 export PYTORCH_BUILD_VERSION="${BASE_VERSION}+${PYTORCH_LOCAL_VERSION}"
 export PYTORCH_BUILD_NUMBER=1
 
@@ -110,11 +92,21 @@ rm -rf "${UNPACK_DIR}"
 WHEEL="$(ls "${GPU_TUNED_DIST_DIR}"/torch-*.whl 2>/dev/null | head -1)"
 echo "Re-packed with build-info stamp: $(basename "${WHEEL}")"
 
+# Load the finished wheel once in a clean venv before anything is published: label, one torch
+# at exactly this version, the stamp in libtorch_cuda.so, CUDA usable, device capability.
+# Needs the target GPU on this host. Skip only for a wheel that will never be published.
+if [[ "${PYTORCH_WHEEL_SKIP_SMOKE:-}" == 1 ]]; then
+    echo "SKIP: wheel smoke test (PYTORCH_WHEEL_SKIP_SMOKE=1); do not publish this wheel"
+else
+    GPU_TUNED_SMOKE_EXPECT_CAP="${GPU_TUNED_TORCH_ARCH%a}" \
+        gpu_tuned_smoke_wheel "${WHEEL}" torch torch pytorch_build_info libtorch_cuda.so || exit 1
+fi
+
 # No separate -variant-cu suffix here: PYTORCH_BUILD_VERSION's own local
-# segment already carries variant/cuda/tuning-count, so appending them
+# segment already carries variant/cuda/date, so appending them
 # again would just duplicate them in the tag.
 RELEASE_TAG="v${PYTORCH_BUILD_VERSION}"
-RELEASE_TITLE="PyTorch ${BASE_VERSION} — ${GPU_TUNED_VARIANT} tuning.${TUNED_COMMIT_COUNT} (cu${CUDA_VERSION_COMPACT}, ${GIT_SHA}) — ${GPU_TUNED_HW_LABEL} wheel"
+RELEASE_TITLE="PyTorch ${BASE_VERSION} — ${GPU_TUNED_VARIANT} ${PYTORCH_LOCAL_VERSION#*.} (${GIT_SHA}) — ${GPU_TUNED_HW_LABEL} wheel"
 
 echo ""
 echo "Publishing wheel to GitHub release ${RELEASE_TAG}..."
