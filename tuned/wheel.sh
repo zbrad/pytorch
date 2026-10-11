@@ -14,7 +14,7 @@ cd "${REPO_ROOT}"
 # shellcheck source=env.sh
 source "${REPO_ROOT}/tuned/env.sh" "${GPU_TUNED_ARG_VARIANT}"
 
-VENV_DIR="${REPO_ROOT}/.venv-${GPU_TUNED_VARIANT}"
+VENV_DIR="${GPU_TUNED_VENV_DIR}"
 [[ -d "${VENV_DIR}" ]] || {
     echo "ERROR: ${VENV_DIR} not found. Run tuned/build.sh ${GPU_TUNED_VARIANT} first." >&2
     exit 1
@@ -78,11 +78,11 @@ echo "PYTORCH_BUILD_VERSION: ${PYTORCH_BUILD_VERSION}"
 echo ""
 
 pip install --upgrade build wheel
-rm -rf "${REPO_ROOT}/dist"
-python3 -m build --wheel --no-isolation
+rm -rf "${GPU_TUNED_DIST_DIR}"
+python3 -m build --wheel --no-isolation --outdir "${GPU_TUNED_DIST_DIR}"
 
-WHEEL="$(ls "${REPO_ROOT}"/dist/torch-*.whl 2>/dev/null | head -1)"
-[[ -z "${WHEEL}" ]] && { echo "ERROR: no wheel found in dist/" >&2; exit 1; }
+WHEEL="$(ls "${GPU_TUNED_DIST_DIR}"/torch-*.whl 2>/dev/null | head -1)"
+[[ -z "${WHEEL}" ]] && { echo "ERROR: no wheel found in ${GPU_TUNED_DIST_DIR}" >&2; exit 1; }
 echo "Built wheel: $(basename "${WHEEL}") ($(du -sh "${WHEEL}" | awk '{print $1}'))"
 
 # libtorch_cuda.so is where TORCH_CUDA_ARCH_LIST's actual device code
@@ -99,14 +99,15 @@ UNPACK_DIR="$(mktemp -d)"
 python3 -m wheel unpack "${WHEEL}" --dest "${UNPACK_DIR}"
 WHEEL_SO="$(find "${UNPACK_DIR}" -name libtorch_cuda.so)"
 [[ -z "${WHEEL_SO}" ]] && { echo "ERROR: libtorch_cuda.so not found inside ${WHEEL}." >&2; exit 1; }
+gpu_tuned_assert_versioned_runpath "${WHEEL_SO}"
 gpu_tuned_verify_arch "${WHEEL_SO}" "${GPU_TUNED_TORCH_ARCH}"
 embed_build_info "${WHEEL_SO}" "${GPU_TUNED_VARIANT}" "torch" "${PYTORCH_BUILD_VERSION}" "${GPU_TUNED_HW_LABEL}"
 gpu_tuned_verify_build_info "${WHEEL_SO}" "torch" "${PYTORCH_BUILD_VERSION}" "pytorch_build_info"
 rm -f "${WHEEL}"
 UNPACKED_CONTENT_DIR="$(find "${UNPACK_DIR}" -maxdepth 1 -mindepth 1 -type d)"
-python3 -m wheel pack "${UNPACKED_CONTENT_DIR}" --dest-dir "${REPO_ROOT}/dist"
+python3 -m wheel pack "${UNPACKED_CONTENT_DIR}" --dest-dir "${GPU_TUNED_DIST_DIR}"
 rm -rf "${UNPACK_DIR}"
-WHEEL="$(ls "${REPO_ROOT}"/dist/torch-*.whl 2>/dev/null | head -1)"
+WHEEL="$(ls "${GPU_TUNED_DIST_DIR}"/torch-*.whl 2>/dev/null | head -1)"
 echo "Re-packed with build-info stamp: $(basename "${WHEEL}")"
 
 # No separate -variant-cu suffix here: PYTORCH_BUILD_VERSION's own local

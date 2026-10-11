@@ -1,8 +1,8 @@
 #!/bin/bash
 # tuned/build.sh <variant> — build/install pytorch from source for a single
-# GPU variant (gb10/rtx40/rtx50) only, single-arch, into a per-variant
-# editable venv. This is the real, multi-hour compile step; see
-# tuned/wheel.sh for packaging + publishing once this succeeds.
+# GPU variant (gb10/rtx40/rtx50) only, single-arch, into an editable venv
+# under tuned/build/cu<ver>/ (see env.sh). This is the real, multi-hour
+# compile step; see tuned/wheel.sh for packaging + publishing once this succeeds.
 #
 # Uses the modern PEP 517 flow (pytorch's own setup.py is now just a
 # deprecation shim, see setup.py's own DEPRECATION_NOTICE): plain
@@ -18,7 +18,7 @@ source "${REPO_ROOT}/tuned/env.sh" "${GPU_TUNED_ARG_VARIANT}"
 
 command -v python3 &>/dev/null || { echo "ERROR: python3 not found on PATH." >&2; exit 1; }
 
-VENV_DIR="${REPO_ROOT}/.venv-${GPU_TUNED_VARIANT}"
+VENV_DIR="${GPU_TUNED_VENV_DIR}"
 if [[ "${GPU_TUNED_CLEAN_VENV:-}" == "1" && -d "${VENV_DIR}" ]]; then
     echo "GPU_TUNED_CLEAN_VENV=1: removing ${VENV_DIR} for a clean rebuild"
     rm -rf "${VENV_DIR}"
@@ -99,17 +99,25 @@ else
 fi
 echo ""
 
+gpu_tuned_assert_cmake_cache_consistent
+
 echo "Building pytorch (this will take a long time)..."
 pip install --no-build-isolation -v -e .
+
+gpu_tuned_assert_versioned_runpath "${GPU_TUNED_CMAKE_DIR}/lib/libtorch_cuda.so"
 
 echo ""
 echo "Smoke test: import torch, confirm CUDA is compiled in and reports the requested arch..."
 python3 - <<'PYEOF'
+import os
+
 import torch
 
 print(f"torch.__version__ = {torch.__version__}")
 print(f"torch.version.cuda = {torch.version.cuda}")
 assert torch.backends.cuda.is_built(), "torch was NOT built with CUDA support"
+expected = os.environ["CUDA_HOME"].rsplit("cuda-", 1)[1]
+assert torch.version.cuda == expected, f"built against CUDA {torch.version.cuda}, expected {expected}"
 print("OK: torch imports cleanly and was built with CUDA support.")
 PYEOF
 
