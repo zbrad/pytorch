@@ -108,6 +108,15 @@ fi
 RELEASE_TAG="v${PYTORCH_BUILD_VERSION}"
 RELEASE_TITLE="PyTorch ${BASE_VERSION} — ${GPU_TUNED_VARIANT} ${PYTORCH_LOCAL_VERSION#*.} (${GIT_SHA}) — ${GPU_TUNED_HW_LABEL} wheel"
 
+# PYTORCH_WHEEL_NO_PUBLISH=1 stops here: everything above (label, packaging, stamp, smoke
+# test) has run, and nothing is sent to GitHub. For testing the pipeline end to end.
+if [[ -n "${PYTORCH_WHEEL_NO_PUBLISH:-}" ]]; then
+    echo ""
+    echo "PYTORCH_WHEEL_NO_PUBLISH set: built ${RELEASE_TAG}, not published."
+    echo "Wheel: ${WHEEL}"
+    exit 0
+fi
+
 echo ""
 echo "Publishing wheel to GitHub release ${RELEASE_TAG}..."
 gpu_tuned_publish_release "zbrad/pytorch" "${RELEASE_TAG}" "${RELEASE_TITLE}" \
