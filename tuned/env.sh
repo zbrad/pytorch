@@ -170,7 +170,30 @@ if [ -n "${GPU_TUNED_NCCL_DIR:-}" ]; then
     export USE_SYSTEM_NCCL=1 USE_STATIC_NCCL=1
     export NCCL_ROOT="${GPU_TUNED_NCCL_DIR}" NCCL_INCLUDE_DIR="${GPU_TUNED_NCCL_DIR}/include" NCCL_LIB_DIR="${GPU_TUNED_NCCL_DIR}/lib"
     echo "[tuned/env] prebuilt NCCL: ${GPU_TUNED_NCCL_DIR} (USE_SYSTEM_NCCL=1 USE_STATIC_NCCL=1)"
+    # What was linked, for the build-info stamp (the "deps" field) and the release notes: NCCL's
+    # own version, the zbrad/nccl release it came from, and its source describe. Read from the
+    # tarball's BUILD_INFO, so it cannot disagree with the files that were really linked.
+    _nccl_bi="${GPU_TUNED_NCCL_DIR}/BUILD_INFO"
+    GPU_TUNED_NCCL_VERSION="$(sed -n 's/^nccl_version=//p' "${_nccl_bi}" 2>/dev/null | head -1)"
+    GPU_TUNED_NCCL_TAG="$(sed -n 's/^tag=//p' "${_nccl_bi}" 2>/dev/null | head -1)"
+    GPU_TUNED_NCCL_SOURCE="$(sed -n 's/^source=//p' "${_nccl_bi}" 2>/dev/null | head -1)"
+    unset _nccl_bi
+    if [ -z "${GPU_TUNED_NCCL_VERSION}" ] || [ -z "${GPU_TUNED_NCCL_TAG}" ]; then
+        echo "ERROR: ${GPU_TUNED_NCCL_DIR}/BUILD_INFO lacks nccl_version or tag; is this a zbrad/nccl release extraction?" >&2
+        return 1 2>/dev/null || exit 1
+    fi
+    GPU_TUNED_NCCL_URL="https://github.com/zbrad/nccl/releases/tag/${GPU_TUNED_NCCL_TAG}"
+    export GPU_TUNED_NCCL_VERSION GPU_TUNED_NCCL_TAG GPU_TUNED_NCCL_SOURCE GPU_TUNED_NCCL_URL
+    export GPU_TUNED_BUILD_INFO_DEPS="nccl ${GPU_TUNED_NCCL_VERSION} (${GPU_TUNED_NCCL_SOURCE}, static) ${GPU_TUNED_NCCL_URL}"
+else
+    export GPU_TUNED_BUILD_INFO_DEPS="nccl in-tree (third_party/nccl $(git -C "${GPU_TUNED_SELF_DIR}/../third_party/nccl" describe --tags --long 2>/dev/null || echo unknown))"
 fi
+
+# Which upstream ref the stamp's base is computed against: upstream's default branch. The base
+# recorded is the merge-base with it, i.e. what tuned-builds actually contains (not a tag we
+# have not merged). Override per build with GPU_TUNED_UPSTREAM_REF.
+: "${GPU_TUNED_UPSTREAM_REF:=upstream/main}"
+export GPU_TUNED_UPSTREAM_REF
 
 echo "[tuned/env] GPU_TUNED_VARIANT=${GPU_TUNED_VARIANT} TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} CUDA_HOME=${CUDA_HOME:-<unset>} MAX_JOBS=${MAX_JOBS}"
 

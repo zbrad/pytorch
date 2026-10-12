@@ -120,7 +120,7 @@ fi
 echo ""
 echo "Publishing wheel to GitHub release ${RELEASE_TAG}..."
 gpu_tuned_publish_release "zbrad/pytorch" "${RELEASE_TAG}" "${RELEASE_TITLE}" \
-    "torch ${PYTORCH_BUILD_VERSION} wheel for ${GPU_TUNED_HW_LABEL}, single-arch (TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST}), CUDA ${CUDA_HOME:-unknown}." \
+    "torch ${PYTORCH_BUILD_VERSION} wheel for ${GPU_TUNED_HW_LABEL}, single-arch (TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST}), CUDA ${CUDA_HOME:-unknown}.${GPU_TUNED_NCCL_URL:+ NCCL ${GPU_TUNED_NCCL_VERSION} (${GPU_TUNED_NCCL_SOURCE}) statically linked, from ${GPU_TUNED_NCCL_URL}.}" \
     "${WHEEL}#$(basename "${WHEEL}")"
 
 echo ""
