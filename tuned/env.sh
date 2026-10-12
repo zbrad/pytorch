@@ -115,6 +115,17 @@ gpu_tuned_assert_cmake_cache_consistent() {
         echo "ERROR: ${cache} was configured for source tree ${cached}, not ${repo_root} -- looks copied from another checkout. Remove it first: rm -rf ${GPU_TUNED_CMAKE_DIR}" >&2
         return 1
     fi
+    # FindNCCL's cached NCCL_INCLUDE_DIR wins over the environment, so a tree configured against
+    # one NCCL silently keeps it after GPU_TUNED_NCCL_DIR (or the pin) changes.
+    cached="$(sed -n 's/^NCCL_INCLUDE_DIR:PATH=//p' "${cache}" | head -1)"
+    if [[ -n "${GPU_TUNED_NCCL_DIR:-}" && "${cached}" != "${GPU_TUNED_NCCL_DIR}/include" ]]; then
+        echo "ERROR: ${cache} was configured against NCCL '${cached:-<in-tree>}', but this build uses ${GPU_TUNED_NCCL_DIR}. Remove the tree first: rm -rf ${GPU_TUNED_CMAKE_DIR}" >&2
+        return 1
+    fi
+    if [[ -z "${GPU_TUNED_NCCL_DIR:-}" && -n "${cached}" ]]; then
+        echo "ERROR: ${cache} was configured against the prebuilt NCCL '${cached}', but this build uses the in-tree NCCL. Remove the tree first: rm -rf ${GPU_TUNED_CMAKE_DIR}" >&2
+        return 1
+    fi
 }
 
 # gpu_tuned_assert_versioned_runpath <so>: fail if the library's
@@ -133,7 +144,20 @@ export TORCH_CUDA_ARCH_LIST="${GPU_TUNED_TORCH_ARCH}"
 export MAX_JOBS="${MAX_JOBS:-$(nproc)}"
 [ -n "${GPU_TUNED_USE_KLEIDIAI_SME}" ] && export USE_KLEIDIAI_SME="${GPU_TUNED_USE_KLEIDIAI_SME}"
 
-# Prebuilt NCCL. By default PyTorch clones NCCL into third_party/nccl and builds it in-tree.
+# Prebuilt NCCL, pinned. tuned/nccl.pins names a zbrad/nccl release per variant and toolkit; it is
+# fetched, checksum-verified and extracted once into build/<toolkit>/nccl/<tag>/ and used unless
+# GPU_TUNED_NCCL_BUILTIN=1 (build NCCL in-tree, the old path) or GPU_TUNED_NCCL_DIR is already set.
+if [ -z "${GPU_TUNED_NCCL_DIR:-}" ] && [ -z "${GPU_TUNED_NCCL_BUILTIN:-}" ] && [ -f "${GPU_TUNED_SELF_DIR}/nccl.pins" ]; then
+    _nccl_tag="$(awk -v v="${GPU_TUNED_VARIANT}" -v c="cu${CUDA_VERSION_COMPACT}" '$1 !~ /^#/ && $1==v && $2==c {print $3}' "${GPU_TUNED_SELF_DIR}/nccl.pins")"
+    if [ -n "${_nccl_tag}" ]; then
+        bash "${GPU_TUNED_SELF_DIR}/fetch_nccl.sh" "${_nccl_tag}" "${GPU_TUNED_BUILD_ROOT}/nccl/${_nccl_tag}" >&2 || { unset _nccl_tag; return 1 2>/dev/null || exit 1; }
+        GPU_TUNED_NCCL_DIR="${GPU_TUNED_BUILD_ROOT}/nccl/${_nccl_tag}"
+    else
+        echo "[tuned/env] no NCCL pin for ${GPU_TUNED_VARIANT} cu${CUDA_VERSION_COMPACT} in tuned/nccl.pins: NCCL is built in-tree." >&2
+    fi
+    unset _nccl_tag
+fi
+# By default PyTorch clones NCCL into third_party/nccl and builds it in-tree.
 # GPU_TUNED_NCCL_DIR=<dir> instead links a prebuilt single-arch NCCL (a zbrad/nccl release
 # tarball, extracted: <dir>/lib/libnccl_static.a and <dir>/include/nccl.h) through PyTorch's own
 # USE_SYSTEM_NCCL + USE_STATIC_NCCL, with no PyTorch source change. Opt-in; unset keeps the

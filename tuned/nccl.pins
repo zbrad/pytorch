@@ -1,0 +1,8 @@
+# tuned/nccl.pins -- which zbrad/nccl release pytorch links, per variant and toolkit.
+#   <variant> <toolkit id> <release tag>
+# tuned/env.sh fetches and verifies the tag (tuned/fetch_nccl.sh) into
+# build/<toolkit>/nccl/<tag>/ and builds against it (USE_SYSTEM_NCCL + USE_STATIC_NCCL).
+# Move a pin deliberately, in its own commit: the NCCL version in a wheel follows this line.
+# GPU_TUNED_NCCL_BUILTIN=1 ignores this file and builds NCCL in-tree (third_party/nccl) instead;
+# GPU_TUNED_NCCL_DIR=<dir> overrides it with a local extraction.
+gb10 cu134 v0.20261012.0-gb10-cu134
