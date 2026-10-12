@@ -71,7 +71,9 @@ NCCL_PATCH="${REPO_ROOT}/tuned/patches/nccl-ldmc-arch-gate.patch"
 echo "=========================================="
 echo "NCCL LDMC arch-gate patch check"
 echo "=========================================="
-if [[ ! -f "${NCCL_MAKEFILE}" ]]; then
+if [[ -n "${GPU_TUNED_NCCL_DIR:-}" ]]; then
+    echo "SKIP: prebuilt NCCL (GPU_TUNED_NCCL_DIR=${GPU_TUNED_NCCL_DIR}); third_party/nccl is not used."
+elif [[ ! -f "${NCCL_MAKEFILE}" ]]; then
     echo "WARNING: ${NCCL_MAKEFILE} not found (third_party/nccl not yet" >&2
     echo "  checked out) -- cannot apply the NCCL LDMC arch-gate patch this run." >&2
     echo "  gpu_tuned_verify_arch in wheel.sh will still catch a fat sm_100" >&2

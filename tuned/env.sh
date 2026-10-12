@@ -133,6 +133,21 @@ export TORCH_CUDA_ARCH_LIST="${GPU_TUNED_TORCH_ARCH}"
 export MAX_JOBS="${MAX_JOBS:-$(nproc)}"
 [ -n "${GPU_TUNED_USE_KLEIDIAI_SME}" ] && export USE_KLEIDIAI_SME="${GPU_TUNED_USE_KLEIDIAI_SME}"
 
+# Prebuilt NCCL. By default PyTorch clones NCCL into third_party/nccl and builds it in-tree.
+# GPU_TUNED_NCCL_DIR=<dir> instead links a prebuilt single-arch NCCL (a zbrad/nccl release
+# tarball, extracted: <dir>/lib/libnccl_static.a and <dir>/include/nccl.h) through PyTorch's own
+# USE_SYSTEM_NCCL + USE_STATIC_NCCL, with no PyTorch source change. Opt-in; unset keeps the
+# in-tree build and its tuned/patches/nccl-ldmc-arch-gate.patch step.
+if [ -n "${GPU_TUNED_NCCL_DIR:-}" ]; then
+    if [ ! -f "${GPU_TUNED_NCCL_DIR}/lib/libnccl_static.a" ] || [ ! -f "${GPU_TUNED_NCCL_DIR}/include/nccl.h" ]; then
+        echo "ERROR: GPU_TUNED_NCCL_DIR=${GPU_TUNED_NCCL_DIR} has no lib/libnccl_static.a and include/nccl.h." >&2
+        return 1 2>/dev/null || exit 1
+    fi
+    export USE_SYSTEM_NCCL=1 USE_STATIC_NCCL=1
+    export NCCL_ROOT="${GPU_TUNED_NCCL_DIR}" NCCL_INCLUDE_DIR="${GPU_TUNED_NCCL_DIR}/include" NCCL_LIB_DIR="${GPU_TUNED_NCCL_DIR}/lib"
+    echo "[tuned/env] prebuilt NCCL: ${GPU_TUNED_NCCL_DIR} (USE_SYSTEM_NCCL=1 USE_STATIC_NCCL=1)"
+fi
+
 echo "[tuned/env] GPU_TUNED_VARIANT=${GPU_TUNED_VARIANT} TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} CUDA_HOME=${CUDA_HOME:-<unset>} MAX_JOBS=${MAX_JOBS}"
 
 # gpu_tuned_verify_arch now comes from common.sh (sourced above); call
