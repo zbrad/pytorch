@@ -141,7 +141,7 @@ gpu_tuned_assert_versioned_runpath() {
 
 export USE_CUDA=1
 export TORCH_CUDA_ARCH_LIST="${GPU_TUNED_TORCH_ARCH}"
-export MAX_JOBS="${MAX_JOBS:-$(nproc)}"
+export MAX_JOBS="${MAX_JOBS:-$(gpu_tuned_jobs)}"
 [ -n "${GPU_TUNED_USE_KLEIDIAI_SME}" ] && export USE_KLEIDIAI_SME="${GPU_TUNED_USE_KLEIDIAI_SME}"
 
 # Prebuilt NCCL, pinned. tuned/nccl.pins names a zbrad/nccl release per variant and toolkit; it is
