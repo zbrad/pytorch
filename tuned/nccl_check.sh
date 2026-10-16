@@ -1,29 +1,28 @@
 #!/bin/bash
-# tuned/nccl_check.sh <variant> — after tuned/build.sh with GPU_TUNED_NCCL_DIR set, check in the
-# per-toolkit venv that torch really uses the prebuilt NCCL: its version is the one in the NCCL
+# tuned/nccl_check.sh <variant> <venv-dir> — after tuned/build.sh with GPU_TUNED_NCCL_DIR set, check in
+# a venv with the built wheel installed (tuned/full_test.sh passes its test venv) that torch really uses the prebuilt NCCL: its version is the one in the NCCL
 # tarball's BUILD_INFO, libtorch_cuda has no dynamic libnccl dependency (the archive is linked in),
 # libtorch_cuda is still single-arch, and an NCCL all-reduce runs correctly on the GPU.
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-GPU_TUNED_ARG_VARIANT="${1:?usage: tuned/nccl_check.sh <variant>}"
+GPU_TUNED_ARG_VARIANT="${1:?usage: tuned/nccl_check.sh <variant> <venv-dir>}"
+VENV_DIR="${2:?usage: tuned/nccl_check.sh <variant> <venv-dir>}"
 # shellcheck source=env.sh
 source "${REPO_ROOT}/tuned/env.sh" "${GPU_TUNED_ARG_VARIANT}" || exit 1
 [[ -n "${GPU_TUNED_NCCL_DIR:-}" ]] || { echo "ERROR: GPU_TUNED_NCCL_DIR is not set; nothing to check." >&2; exit 1; }
 # shellcheck source=/dev/null
-source "${GPU_TUNED_VENV_DIR}/bin/activate"
+source "${VENV_DIR}/bin/activate"
 
 BUILD_INFO="${GPU_TUNED_NCCL_DIR}/BUILD_INFO"
 WANT="$(sed -n 's/^nccl_version=//p' "${BUILD_INFO}" 2>/dev/null | head -1)"
 [[ -n "${WANT}" ]] || { echo "ERROR: ${BUILD_INFO} has no nccl_version (is GPU_TUNED_NCCL_DIR the extracted tarball root?)" >&2; exit 1; }
-# Find the libtorch_cuda.so the process REALLY loads, from /proc/self/maps. torch.__file__ is not
-# the answer: with an editable install the Python files come from the source tree (whose torch/lib
-# may hold stale libraries) while the native libraries come from the venv.
+# Find the libtorch_cuda.so the process REALLY loads, from /proc/self/maps.
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT
 cd "${WORK}"
 LIB="$(python -I -c 'import torch
 print(next(l.split()[-1] for l in open("/proc/self/maps") if "libtorch_cuda.so" in l))')"
-case "${LIB}" in "${GPU_TUNED_VENV_DIR}"/*) ;; *) echo "FAIL: libtorch_cuda.so is loaded from ${LIB}, not from the venv ${GPU_TUNED_VENV_DIR}" >&2; exit 1 ;; esac
+case "${LIB}" in "${VENV_DIR}"/*) ;; *) echo "FAIL: libtorch_cuda.so is loaded from ${LIB}, not from the venv ${VENV_DIR}" >&2; exit 1 ;; esac
 echo "ok:   torch loads ${LIB}"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }

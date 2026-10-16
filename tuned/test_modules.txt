@@ -1,0 +1,28 @@
+# tuned/test_modules.txt -- the test modules tuned/full_test.sh runs (through test/run_test.py -i)
+# for a release. One module per line, relative to test/, no .py. This list IS the recorded
+# decision under docs/ARCHITECTURE.md G3 (a narrower gate than upstream's full run_test.py is a
+# decision, not a default): decided 2026-10-16 by the maintainer as "curated subset + ABI check".
+#
+# What it covers: the CUDA runtime layer (this is where a toolkit, arch or NCCL change shows),
+# nn/linalg/matmul/tensor-creation/reductions/autograd on CUDA, the transformer fast paths,
+# JIT C++ extensions (the ABI class verify_abi.sh also checks), and the NCCL modules.
+# What it leaves out on purpose: the rest of upstream's ~2000-module suite (inductor, dynamo,
+# export, onnx, quantization, profiler, ...), which this build does not alter. Widen the list
+# here, in its own commit, and say why.
+#
+# Modules that skip by design on this hardware (single GPU: the multi-GPU NCCL tests) are named
+# in the test log header by full_test.sh, not hidden.
+test_cuda
+test_cuda_primary_ctx
+test_cuda_trace
+test_nn
+test_linalg
+test_matmul_cuda
+test_tensor_creation_ops
+test_torch
+test_autograd
+test_reductions
+test_transformers
+test_cpp_extensions_jit
+distributed/test_nccl
+distributed/test_c10d_nccl

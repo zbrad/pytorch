@@ -80,7 +80,7 @@ export CUDA_PATH="${CUDA_HOME}" CUDACXX="${CUDA_HOME}/bin/nvcc"
 export CMAKE_ARGS="-DCUDAToolkit_ROOT=${CUDA_HOME} -DCUDA_TOOLKIT_ROOT_DIR=${CUDA_HOME} -DCMAKE_CUDA_COMPILER=${CUDA_HOME}/bin/nvcc -DBUILD_TEST=OFF ${CMAKE_ARGS:-}"
 
 # CUDA_VERSION_COMPACT (e.g. "133" for CUDA 13.3) is the toolkit id's digits, used by
-# tuned/wheel.sh for the version string.
+# tuned/package.sh for the version string.
 CUDA_VERSION_COMPACT="${CUDA_TAG#cu}"
 export CUDA_VERSION_COMPACT
 
@@ -91,17 +91,19 @@ export GPU_TUNED_TORCH_ARCH GPU_TUNED_USE_KLEIDIAI_SME
 
 # Everything a tuned build produces lives under tuned/build/cu<ver>/ (ignored
 # by git via build/): venv/, cmake/ (CMake build tree, via scikit-build-core's
-# SKBUILD_BUILD_DIR), dist/ (wheels), releases/ (test and smoke logs) and ccache/. One tree per toolkit, shared by
-# build.sh/wheel.sh/verify_abi.sh.
+# SKBUILD_BUILD_DIR), wheel/ (the unstamped wheel build.sh makes and full_test.sh tests), dist/
+# (the stamped wheel package.sh makes), releases/ (test and smoke logs) and ccache/. One tree per toolkit, shared by
+# build.sh/full_test.sh/package.sh/smoke_test.sh/release.sh.
 GPU_TUNED_REPO_ROOT="$(cd "${GPU_TUNED_SELF_DIR}/.." && pwd)"
 # One variant per toolkit tree: refuses a tree last used by another variant.
 gpu_tuned_claim_toolkit_tree "${GPU_TUNED_REPO_ROOT}" "${CUDA_TAG}" "${GPU_TUNED_VARIANT}" || return 1 2>/dev/null || exit 1
 GPU_TUNED_BUILD_ROOT="${GPU_TUNED_REPO_ROOT}/tuned/build/${CUDA_TAG}"
 GPU_TUNED_VENV_DIR="${GPU_TUNED_BUILD_ROOT}/venv"
 GPU_TUNED_CMAKE_DIR="${GPU_TUNED_BUILD_ROOT}/cmake"
+GPU_TUNED_WHEEL_DIR="${GPU_TUNED_BUILD_ROOT}/wheel"
 GPU_TUNED_DIST_DIR="${GPU_TUNED_BUILD_ROOT}/dist"
 GPU_TUNED_RELEASES_DIR="${GPU_TUNED_BUILD_ROOT}/releases"
-export GPU_TUNED_BUILD_ROOT GPU_TUNED_VENV_DIR GPU_TUNED_CMAKE_DIR GPU_TUNED_DIST_DIR GPU_TUNED_RELEASES_DIR
+export GPU_TUNED_BUILD_ROOT GPU_TUNED_VENV_DIR GPU_TUNED_CMAKE_DIR GPU_TUNED_WHEEL_DIR GPU_TUNED_DIST_DIR GPU_TUNED_RELEASES_DIR
 export SKBUILD_BUILD_DIR="${GPU_TUNED_CMAKE_DIR}"
 # ccache is isolated per toolkit too, so timings and hits never cross toolkits.
 # CCACHE_DIR makes ccache ignore ~/.config/ccache/ccache.conf, so its 5 GiB

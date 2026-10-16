@@ -1,0 +1,15 @@
+# tuned/requirements-test.txt -- test tooling that tuned/full_test.sh and tuned/smoke_test.sh
+# install next to the built wheel in a throwaway venv. Tooling only; torch and the packages the
+# wheel itself requires come from the wheel. Lower bounds, not pins: upstream's pins in
+# .ci/docker/requirements-ci.txt predate Python 3.14. The resolved versions are written into the
+# test log header, so a result names the tools that produced it.
+pytest
+pytest-xdist
+pytest-rerunfailures>=10.3
+pytest-flakefinder
+expecttest
+hypothesis
+numpy
+# torch.utils.cpp_extension (verify_abi.sh, test_cpp_extensions_jit) needs these in the venv.
+setuptools
+ninja
