@@ -51,9 +51,11 @@ The log header names what is not run. `GPU_TUNED_TEST_MODULES="..."` runs a cust
   (`.pytorch_build_info` in `libtorch_cuda.so`); `vllm/tuned/build.sh` reads it by that name. Migrate
   with the reader changed first.
 - **The stamp's commit is HEAD at packaging**, not the build commit (`package-info.txt` has both).
-- **F1/F4:** the shared objects keep their stock names (`libtorch_cuda.so`, `libc10.so`, ...). The
-  wheel is told apart by its local version. Renaming them would break out-of-tree extensions; not
-  decided.
+- **F4 (decided 2026-10-16, not implemented):** the wheel's shared objects (`libtorch_cuda.so`,
+  `libc10.so`, ...) still ship the stock names. They are to take the generic `-tuned` suffix, with the
+  variant and toolkit staying in the version; every consumer that links torch by name is rebuilt. The
+  list is in `~/.claude/cross-project-todo.md`. Until then the wheel is told apart by its local version,
+  and `smoke_test.sh` fails if a `libtorch*`/`libc10*` is mapped from outside the venv.
 - **cuDNN:** a smoke run printed "PyTorch was compiled without cuDNN/MIOpen support" for the cu134
   wheel. Not investigated here.
 - **rtx40/rtx50** are defined in `common-data` but have never been built from this repo.
