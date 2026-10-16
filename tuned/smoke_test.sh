@@ -3,9 +3,9 @@
 # stamped wheel tuned/package.sh made (named in package-info.txt) into a clean venv and checks:
 #   1. the wheel's sha256 matches package-info.txt and its .sha256 sidecar;
 #   2. gpu_tuned_smoke_wheel: the label parses, exactly one torch of exactly this version is
-#      installed and imported from inside the venv, the build-info stamp in libtorch_cuda.so names this
+#      installed and imported from inside the venv, the build-info stamp in libtorch_cuda-tuned.so names this
 #      version, CUDA works and the device capability is the variant's;
-#   3. the libtorch_cuda.so the process maps is the one inside the venv (proved from /proc/self/maps);
+#   3. the libtorch_cuda-tuned.so the process maps is the one inside the venv (proved from /proc/self/maps);
 #   4. three real tests from this repo pass against it: test_cuda.py test_memory_stats and
 #      test_cublas_multiple_threads_same_device, and test_linalg.py test_matmul_small_brute_force_2d_Nd
 #      (the NCCL all-reduce and broadcast run in tuned/nccl_check.sh, part of full_test.sh).
@@ -51,7 +51,7 @@ ok() { echo "  ok:   $*"; }
     # Install into a clean venv and load it once. The venv is kept so the repo's tests run in it.
     export LD_LIBRARY_PATH="${GPU_TUNED_TOOLKIT_LIB_DIR}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
     SMOKE_OUT="$(GPU_TUNED_SMOKE_KEEP=1 GPU_TUNED_SMOKE_EXPECT_CAP="${GPU_TUNED_TORCH_ARCH%a}" \
-        gpu_tuned_smoke_wheel "${WHEEL}" torch torch pytorch_build_info libtorch_cuda.so 2>&1)"
+        gpu_tuned_smoke_wheel "${WHEEL}" torch torch pytorch_build_info libtorch_cuda-tuned.so 2>&1)"
     SMOKE_RC=$?
     printf '%s\n' "${SMOKE_OUT}" | sed 's/^/  | /'
     VENV="$(printf '%s\n' "${SMOKE_OUT}" | sed -n 's/^venv kept: //p' | tail -1)"
@@ -61,10 +61,10 @@ ok() { echo "  ok:   $*"; }
         ok "wheel installs and loads in a clean venv (label, version, stamp, CUDA, device capability)"
         PY="${VENV}/bin/python"
         env -u PYTHONPATH "${PY}" -m pip install --quiet -r tuned/requirements-test.txt || fail "test tooling did not install"
-        # The libtorch_cuda.so a process maps, from an empty directory, must be inside the venv.
+        # The libtorch_cuda-tuned.so a process maps, from an empty directory, must be inside the venv.
         LIB="$(cd "${WORK}" && env -u PYTHONPATH "${PY}" -I -c 'import torch
-print(next(l.split()[-1] for l in open("/proc/self/maps") if "libtorch_cuda.so" in l))' 2>&1 | tail -1)"
-        [[ "${LIB}" == "${VENV}/"* ]] && ok "libtorch_cuda.so is mapped from the clean venv: ${LIB}" || fail "libtorch_cuda.so maps from '${LIB}', not from ${VENV}"
+print(next(l.split()[-1] for l in open("/proc/self/maps") if "libtorch_cuda-tuned.so" in l))' 2>&1 | tail -1)"
+        [[ "${LIB}" == "${VENV}/"* ]] && ok "libtorch_cuda-tuned.so is mapped from the clean venv: ${LIB}" || fail "libtorch_cuda-tuned.so maps from '${LIB}', not from ${VENV}"
         # Our libraries keep torch's stock names, so prove they cannot be mistaken for stock ones in this
         # process: every libtorch*/libc10* mapped is the venv's, and no library name is mapped from two
         # different files (a second libc10.so, say, from LD_LIBRARY_PATH or another torch).

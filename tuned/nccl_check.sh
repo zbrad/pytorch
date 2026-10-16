@@ -16,20 +16,20 @@ source "${VENV_DIR}/bin/activate"
 BUILD_INFO="${GPU_TUNED_NCCL_DIR}/BUILD_INFO"
 WANT="$(sed -n 's/^nccl_version=//p' "${BUILD_INFO}" 2>/dev/null | head -1)"
 [[ -n "${WANT}" ]] || { echo "ERROR: ${BUILD_INFO} has no nccl_version (is GPU_TUNED_NCCL_DIR the extracted tarball root?)" >&2; exit 1; }
-# Find the libtorch_cuda.so the process REALLY loads, from /proc/self/maps.
+# Find the libtorch_cuda-tuned.so the process REALLY loads, from /proc/self/maps.
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT
 cd "${WORK}"
 LIB="$(python -I -c 'import torch
-print(next(l.split()[-1] for l in open("/proc/self/maps") if "libtorch_cuda.so" in l))')"
-case "${LIB}" in "${VENV_DIR}"/*) ;; *) echo "FAIL: libtorch_cuda.so is loaded from ${LIB}, not from the venv ${VENV_DIR}" >&2; exit 1 ;; esac
+print(next(l.split()[-1] for l in open("/proc/self/maps") if "libtorch_cuda-tuned.so" in l))')"
+case "${LIB}" in "${VENV_DIR}"/*) ;; *) echo "FAIL: libtorch_cuda-tuned.so is loaded from ${LIB}, not from the venv ${VENV_DIR}" >&2; exit 1 ;; esac
 echo "ok:   torch loads ${LIB}"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
-if readelf -d "${LIB}" | grep -qi 'NEEDED.*libnccl'; then fail "libtorch_cuda.so still depends on a shared libnccl"; fi
+if readelf -d "${LIB}" | grep -qi 'NEEDED.*libnccl'; then fail "libtorch_cuda-tuned.so still depends on a shared libnccl"; fi
 echo "ok:   no dynamic libnccl dependency"
-gpu_tuned_verify_arch "${LIB}" "${GPU_TUNED_TORCH_ARCH}" >/dev/null || fail "libtorch_cuda.so is not single-arch sm_${GPU_TUNED_TORCH_ARCH}"
-echo "ok:   libtorch_cuda.so single-arch sm_${GPU_TUNED_TORCH_ARCH}"
+gpu_tuned_verify_arch "${LIB}" "${GPU_TUNED_TORCH_ARCH}" >/dev/null || fail "libtorch_cuda-tuned.so is not single-arch sm_${GPU_TUNED_TORCH_ARCH}"
+echo "ok:   libtorch_cuda-tuned.so single-arch sm_${GPU_TUNED_TORCH_ARCH}"
 
 python -I - "${WANT}" <<'PY'
 import sys

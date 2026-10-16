@@ -71,14 +71,14 @@ env -u PYTHONPATH -u PYTHONHOME "${PY}" -m pip install --quiet "${WHEEL}" -r tun
 # The toolkit's own lib dir first, so the host's ld.so.conf (which follows the /usr/local/cuda
 # symlink) cannot satisfy cudart/cublas from another toolkit.
 export LD_LIBRARY_PATH="${GPU_TUNED_TOOLKIT_LIB_DIR}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
-# The libtorch_cuda.so a process REALLY loads, from /proc/self/maps, run from an empty directory
+# The libtorch_cuda-tuned.so a process REALLY loads, from /proc/self/maps, run from an empty directory
 # (from the repo root, `import torch` would find the source tree's torch/ first).
 cd "${TESTENV}" || exit 1
 LIB="$(env -u PYTHONPATH "${PY}" -I -c 'import torch
-print(next(l.split()[-1] for l in open("/proc/self/maps") if "libtorch_cuda.so" in l))')" || { echo "ERROR: import torch failed in the test venv." >&2; exit 1; }
+print(next(l.split()[-1] for l in open("/proc/self/maps") if "libtorch_cuda-tuned.so" in l))')" || { echo "ERROR: import torch failed in the test venv." >&2; exit 1; }
 cd "${REPODIR}" || exit 1
-[[ "${LIB}" == "${TESTENV}/venv/"* ]] || { echo "ERROR: libtorch_cuda.so is loaded from ${LIB}, not from the test venv." >&2; exit 1; }
-gpu_tuned_verify_toolkit_libs "${LIB}" || { echo "ERROR: libtorch_cuda.so does not resolve the ${CUDA_TAG} runtime libraries." >&2; exit 1; }
+[[ "${LIB}" == "${TESTENV}/venv/"* ]] || { echo "ERROR: libtorch_cuda-tuned.so is loaded from ${LIB}, not from the test venv." >&2; exit 1; }
+gpu_tuned_verify_toolkit_libs "${LIB}" || { echo "ERROR: libtorch_cuda-tuned.so does not resolve the ${CUDA_TAG} runtime libraries." >&2; exit 1; }
 gpu_tuned_verify_arch "${LIB}" "${GPU_TUNED_TORCH_ARCH}" || exit 1
 
 {
@@ -93,7 +93,7 @@ gpu_tuned_verify_arch "${LIB}" "${GPU_TUNED_TORCH_ARCH}" || exit 1
     echo "scope:   ${SCOPE}"
     echo "modules: ${MODULES[*]}"
     echo "skips by design: multi-GPU NCCL/distributed tests skip on a single-GPU host (counted in the output below); everything outside the module list above is not run."
-    echo "gates: wheel installed in a clean venv; libtorch_cuda.so loaded from it; toolkit libs resolve under ${CUDA_HOME}; single-arch ${GPU_TUNED_TORCH_ARCH}; build commit ${BUILD_COMMIT} == HEAD outside tuned/"
+    echo "gates: wheel installed in a clean venv; libtorch_cuda-tuned.so loaded from it; toolkit libs resolve under ${CUDA_HOME}; single-arch ${GPU_TUNED_TORCH_ARCH}; build commit ${BUILD_COMMIT} == HEAD outside tuned/"
     echo ""
 } > "${RESULTS_FILE}"
 

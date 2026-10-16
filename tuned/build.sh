@@ -111,6 +111,14 @@ else
 fi
 echo ""
 
+# Every shared object the wheel ships takes the -tuned name (file name, SONAME, every NEEDED), set on
+# the CMake targets through tuned-common's generated include (docs/ARCHITECTURE.md F4). The Python and
+# C++ code that loads or links them by name carries the matching -tuned strings (tuned/repo.env lists
+# those fork edits). The wheel's Python extension module _C keeps its name: a module name cannot hold a hyphen.
+SO_NAMES_CMAKE="${GPU_TUNED_BUILD_ROOT}/so_names.cmake"
+gpu_tuned_so_names_cmake "${SO_NAMES_CMAKE}"
+export CMAKE_ARGS="-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=${SO_NAMES_CMAKE} -DTUNED_SO_TARGETS=${GPU_TUNED_SO_TARGETS} ${CMAKE_ARGS:-}"
+
 gpu_tuned_assert_cmake_cache_consistent
 
 # Release label, allocated once, here (E3/E4): HEAD's UTC commit date plus the lowest unused
@@ -144,7 +152,7 @@ WHEEL="$(ls "${GPU_TUNED_WHEEL_DIR}"/torch-*.whl 2>/dev/null | head -1)"
 gpu_tuned_check_wheel_label "${WHEEL}"
 echo "Built wheel: $(basename "${WHEEL}") ($(du -sh "${WHEEL}" | awk '{print $1}'))"
 
-gpu_tuned_assert_versioned_runpath "${GPU_TUNED_CMAKE_DIR}/lib/libtorch_cuda.so"
+gpu_tuned_assert_versioned_runpath "${GPU_TUNED_CMAKE_DIR}/lib/libtorch_cuda-tuned.so"
 
 # Written last: their presence means the build finished. full_test.sh and package.sh (H6) read the
 # commit; package.sh and release.sh read the label and never recompute it.

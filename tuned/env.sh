@@ -87,7 +87,7 @@ export CUDA_VERSION_COMPACT
 # --- Repo-specific settings (torch arch spelling, KleidiAI, upstream ref), loaded after the
 #     shared device and toolkit values; may not change any of them. ---
 gpu_tuned_load_repo_env "${GPU_TUNED_SELF_DIR}/repo.env" || return 1 2>/dev/null || exit 1
-export GPU_TUNED_TORCH_ARCH GPU_TUNED_USE_KLEIDIAI_SME
+export GPU_TUNED_TORCH_ARCH GPU_TUNED_USE_KLEIDIAI_SME GPU_TUNED_SO_TARGETS
 
 # Everything a tuned build produces lives under tuned/build/cu<ver>/ (ignored
 # by git via build/): venv/, cmake/ (CMake build tree, via scikit-build-core's

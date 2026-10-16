@@ -11,7 +11,7 @@
 # Output: tuned/build/<cuda-tag>/dist/{torch-*.whl, torch-*.whl.sha256, package-info.txt} and
 #         tuned/releases/RELEASE_NOTES_<version>.md (DRAFT) if no notes exist yet.
 #
-# libtorch_cuda.so is where TORCH_CUDA_ARCH_LIST's device code lands. The stamp is added to a
+# libtorch_cuda-tuned.so is where TORCH_CUDA_ARCH_LIST's device code lands. The stamp is added to a
 # staged unpack of the wheel (a section added to a pre-build .so does not survive the build) and the
 # wheel is repacked, which regenerates RECORD correctly (a raw zip edit would not).
 set -euo pipefail
@@ -78,13 +78,29 @@ mkdir -p "${GPU_TUNED_DIST_DIR}"
 # package-info.txt is removed first and written last: its presence means every check below passed.
 rm -f "${GPU_TUNED_DIST_DIR}/package-info.txt" "${GPU_TUNED_DIST_DIR}"/torch-*.whl "${GPU_TUNED_DIST_DIR}"/torch-*.whl.sha256
 
-echo "Stamping build-info into a staged copy of the wheel's libtorch_cuda.so"
+echo "Stamping build-info into a staged copy of the wheel's libtorch_cuda-tuned.so"
 UNPACK_DIR="$(mktemp -d)"
 trap 'rm -rf "${UNPACK_DIR}"' EXIT
 python3 -m wheel unpack "${BUILT}" --dest "${UNPACK_DIR}"
-WHEEL_SO="$(find "${UNPACK_DIR}" -name libtorch_cuda.so)"
-[[ -n "${WHEEL_SO}" ]] || { echo "ERROR: libtorch_cuda.so not found inside ${BUILT_NAME}." >&2; exit 1; }
+WHEEL_SO="$(find "${UNPACK_DIR}" -name libtorch_cuda-tuned.so)"
+[[ -n "${WHEEL_SO}" ]] || { echo "ERROR: libtorch_cuda-tuned.so not found inside ${BUILT_NAME}." >&2; exit 1; }
 gpu_tuned_assert_versioned_runpath "${WHEEL_SO}"
+
+# F4 gate: no shared object in the wheel keeps a stock torch name, as a file, a SONAME or a NEEDED entry.
+# A check that cannot run is a failure, not a skip (H4): readelf and patchelf must exist.
+command -v readelf >/dev/null && command -v patchelf >/dev/null || { echo "ERROR: readelf and patchelf are needed for the library-name gate." >&2; exit 1; }
+STOCK_RE='^lib(c10|c10_cuda|torch|torch_cpu|torch_cuda|torch_cuda_linalg|torch_python|torch_global_deps|caffe2_nvrtc|shm)\.so(\.[0-9]+)*$'
+NAME_VIOLATIONS=0
+while IFS= read -r so; do
+    base="$(basename "${so}")"
+    [[ "${base}" =~ ${STOCK_RE} ]] && { echo "VIOLATION: ${so#"${UNPACK_DIR}"/} ships under the stock name ${base}." >&2; NAME_VIOLATIONS=1; }
+    readelf -d "${so}" 2>/dev/null | sed -n 's/.*\(NEEDED\|SONAME\).*\[\(.*\)\]/\2/p' | grep -E "${STOCK_RE}" | sed "s#^#VIOLATION: ${base} names the stock library #" >&2 && NAME_VIOLATIONS=1
+done < <(find "${UNPACK_DIR}" -type f -name '*.so*')
+[[ "${NAME_VIOLATIONS}" -eq 0 ]] || { echo "ERROR: the wheel still carries stock torch library names; it was built without the -tuned rename (tuned/build.sh does it)." >&2; exit 1; }
+# Every lib*.so in torch/lib is ours (-tuned) or an assumed system/CUDA library; every NEEDED resolves in the stage or is assumed.
+ASSUME='^(libc|libm|libdl|librt|libpthread|libstdc\+\+|libgcc_s|libgomp|libatomic|libnuma|libmpi|libmpi_cxx|ld-linux-[a-z0-9_-]+|libcuda|libcudart|libcublas|libcublasLt|libcusparse|libcufft|libcusolver|libcurand|libnvrtc|libnvJitLink|libcufile|libnvToolsExt|libcupti|libcudnn[a-z_0-9]*|libnccl)\.so(\.[0-9.]+)*$'
+gpu_tuned_verify_unique_sonames "$(dirname "${WHEEL_SO}")" - "" "${ASSUME}" || { echo "ERROR: torch/lib fails the unique-name gate." >&2; exit 1; }
+echo "OK: every shared object in the wheel carries a -tuned name, SONAME and NEEDED entries"
 gpu_tuned_verify_arch "${WHEEL_SO}" "${GPU_TUNED_TORCH_ARCH}"
 embed_build_info "${WHEEL_SO}" "${GPU_TUNED_VARIANT}" "torch" "${VERSION}" "${GPU_TUNED_HW_LABEL}"
 gpu_tuned_verify_build_info "${WHEEL_SO}" "torch" "${VERSION}" "pytorch_build_info"
