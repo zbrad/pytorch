@@ -26,9 +26,10 @@ Everything a build makes lives in `tuned/build/<cuda-tag>/` (ignored by git): `v
 
 ## Identity
 
-The wheel's version is upstream's plus `+<variant>.<cuda-tag>.<YYYYMMDD>[.<seq>]` (E1); the date is
-the UTC committer date of the tuned commit and the sequence the lowest unused among the repo's tags
-(E3). The label is allocated once, in `build.sh`, because it is compiled into `torch.__version__`
+The wheel's version is upstream's plus `+<variant>.<cuda-tag>.<YYYYMMDD>.<seq>` (E1), e.g.
+`2.15.0+gb10.cu134.20261016.0`; the date is the UTC committer date of the tuned commit and the
+sequence (always written, `0` for the first build) the lowest unused among the repo's tags (E3).
+The Oct 12 release `…20261012` predates the `.0` rule, is not renamed, and counts as sequence 0. The label is allocated once, in `build.sh`, because it is compiled into `torch.__version__`
 (E4); `package.sh` and `release.sh` read it and never recompute it. The release tag is `v<version>`.
 
 ## Test scope (recorded decision, G3)
