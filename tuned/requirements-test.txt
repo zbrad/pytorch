@@ -10,6 +10,8 @@ pytest-flakefinder
 expecttest
 hypothesis
 numpy
+# test_cuda.py imports it at the top.
+psutil
 # torch.utils.cpp_extension (verify_abi.sh, test_cpp_extensions_jit) needs these in the venv.
 setuptools
 ninja
