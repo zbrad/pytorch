@@ -3,11 +3,19 @@
 # single-arch pytorch build (gb10/rtx40/rtx50). Source this file with the
 # variant as $1; do not execute it directly.
 #
-# Exported: GPU_TUNED_VARIANT/PLATFORM/TORCH_ARCH/HW_LABEL/USE_KLEIDIAI_SME
-# (from tuned/devices/<variant>.conf), CUDA_HOME (an explicit
-# /usr/local/cuda-X.Y; autodetected highest installed when unset),
-# GPU_TUNED_BUILD_ROOT (tuned/build/cu<ver>: venv/ cmake/ dist/ ccache/), USE_CUDA, TORCH_CUDA_ARCH_LIST, MAX_JOBS, and (gb10
-# only) USE_KLEIDIAI_SME.
+#   CUDA_TAG=cu134 bash tuned/build.sh gb10     (or CUDA_VER=13.4)
+#
+# Device facts come from tuned/common-data/devices/<variant>.conf and the CUDA toolkit from
+# tuned/common-data/toolkits/<id>.env (both vendored from zbrad/tuned-common), never from
+# /usr/local/cuda or from what happens to be installed. With neither CUDA_TAG nor CUDA_VER set
+# the toolkit named in toolkits/DEFAULT is used, and the available list and the reason are
+# printed. Repo-specific settings live in tuned/repo.env, loaded last; it may not change any
+# shared key.
+#
+# Exported: GPU_TUNED_VARIANT/PLATFORM/CUDA_ARCH/HW_LABEL (shared), GPU_TUNED_TORCH_ARCH and
+# GPU_TUNED_USE_KLEIDIAI_SME (repo.env), CUDA_HOME/CUDA_TAG/CUDA_VER (the toolkit),
+# GPU_TUNED_BUILD_ROOT (tuned/build/cu<ver>: venv/ cmake/ dist/ releases/ ccache/), USE_CUDA,
+# TORCH_CUDA_ARCH_LIST, MAX_JOBS, and (gb10 only) USE_KLEIDIAI_SME.
 #
 # USE_CUDA/TORCH_CUDA_ARCH_LIST/USE_KLEIDIAI_SME are plain shell env vars,
 # not CMAKE_ARGS -- confirmed against pytorch's own real CI recipe
@@ -16,49 +24,46 @@
 # CMAKE_BUILD_PARALLEL_LEVEL via pyproject.toml's own
 # [tool.scikit-build.env] table.
 
-GPU_TUNED_ARG_VARIANT="$1"
+GPU_TUNED_ARG_VARIANT="${1:-}"
 if [[ -z "${GPU_TUNED_ARG_VARIANT}" ]]; then
     echo "ERROR: env.sh requires a variant argument (gb10/rtx40/rtx50)" >&2
     return 1 2>/dev/null || exit 1
 fi
 
 GPU_TUNED_SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=devices/rtx50.conf
-source "${GPU_TUNED_SELF_DIR}/devices/${GPU_TUNED_ARG_VARIANT}.conf" || return 1 2>/dev/null || exit 1
-export GPU_TUNED_VARIANT GPU_TUNED_PLATFORM GPU_TUNED_TORCH_ARCH GPU_TUNED_HW_LABEL GPU_TUNED_USE_KLEIDIAI_SME
+GPU_TUNED_DATA_DIR="${GPU_TUNED_SELF_DIR}/common-data"
+if [[ ! -f "${GPU_TUNED_DATA_DIR}/devices/${GPU_TUNED_ARG_VARIANT}.conf" ]]; then
+    echo "ERROR: no device '${GPU_TUNED_ARG_VARIANT}' in ${GPU_TUNED_DATA_DIR}/devices (have: $(cd "${GPU_TUNED_DATA_DIR}/devices" && ls | sed 's/\.conf$//' | tr '\n' ' '))" >&2
+    return 1 2>/dev/null || exit 1
+fi
+# shellcheck source=common-data/devices/gb10.conf
+source "${GPU_TUNED_DATA_DIR}/devices/${GPU_TUNED_ARG_VARIANT}.conf" || return 1 2>/dev/null || exit 1
+export GPU_TUNED_VARIANT GPU_TUNED_PLATFORM GPU_TUNED_CUDA_ARCH GPU_TUNED_HW_LABEL
 
 # shellcheck source=common.sh
-# Vendored from https://github.com/zbrad/tuned-common (pinned commit --
-# see common.sh's own header/sync instructions to update). Provides
-# gpu_tuned_verify_arch/assert_platform/installed_cuda_toolkits, shared
-# verbatim across the fleet instead of hand-copied-and-edited per repo.
-# NOT used for embed_build_info here: kept local on purpose (same
-# reasoning as zbrad/raft's/zbrad/cuvs's/zbrad/faiss's tuned/env.sh).
+# Vendored from https://github.com/zbrad/tuned-common (see sync-common.sh).
 source "${GPU_TUNED_SELF_DIR}/common.sh" || return 1 2>/dev/null || exit 1
 
 # Fail loudly if this script runs on the wrong host, rather than letting a
 # mismatched build silently produce a wrong-architecture wheel that only
-# surfaces as a confusing failure several steps later (same pattern as
-# raft/cuvs's tuned/env.sh).
+# surfaces as a confusing failure several steps later.
 gpu_tuned_assert_platform "${GPU_TUNED_PLATFORM}" "${GPU_TUNED_VARIANT}" || return 1 2>/dev/null || exit 1
 
-# --- CUDA toolkit: only an explicit /usr/local/cuda-X.Y path, never the
-# unversioned /usr/local/cuda (or cuda-13) alternatives symlinks, which
-# silently follow whatever `update-alternatives` points at. CUDA_HOME
-# defaults to the highest installed versioned toolkit.
-if [ -z "${CUDA_HOME:-}" ]; then
-    _pytorch_highest="$(gpu_tuned_installed_cuda_toolkits | tail -1)"
-    if [ -z "$_pytorch_highest" ]; then
-        echo "ERROR: no /usr/local/cuda-X.Y toolkit found; set CUDA_HOME to one." >&2
-        return 1 2>/dev/null || exit 1
-    fi
-    export CUDA_HOME="/usr/local/cuda-${_pytorch_highest}"
-    unset _pytorch_highest
+# --- CUDA toolkit: CUDA_TAG (cu134) or CUDA_VER (13.4) select one from
+#     tuned/common-data/toolkits; neither means toolkits/DEFAULT, stated loudly. ---
+_pytorch_tk="${CUDA_TAG:-}"
+_pytorch_req_ver="${CUDA_VER:-}"
+if [ -z "${_pytorch_tk}" ] && [ -n "${_pytorch_req_ver}" ]; then
+    _pytorch_tk="cu${_pytorch_req_ver//./}"                     # 13.4 -> cu134
 fi
-if [[ ! "${CUDA_HOME}" =~ ^/usr/local/cuda-[0-9]+\.[0-9]+$ || ! -d "${CUDA_HOME}" ]]; then
-    echo "ERROR: CUDA_HOME='${CUDA_HOME}' must be an existing /usr/local/cuda-X.Y directory (not /usr/local/cuda or cuda-<major>)." >&2
+# An inherited CUDA_HOME must agree with the toolkit (gpu_tuned_load_toolkit refuses otherwise).
+gpu_tuned_load_toolkit "${GPU_TUNED_DATA_DIR}" "${GPU_TUNED_VARIANT}" "${_pytorch_tk}" || return 1 2>/dev/null || exit 1
+if [ -n "${_pytorch_req_ver}" ] && [ "${_pytorch_req_ver}" != "${TOOLKIT_CUDA_VER}" ]; then
+    echo "[tuned/env] ERROR: CUDA_VER=${_pytorch_req_ver} conflicts with toolkit ${TOOLKIT_ID} (CUDA ${TOOLKIT_CUDA_VER})." >&2
     return 1 2>/dev/null || exit 1
 fi
+unset _pytorch_tk _pytorch_req_ver
+gpu_tuned_verify_toolkit || return 1 2>/dev/null || exit 1
 
 # Drop unversioned /usr/local/cuda[-<major>] entries so nothing resolves
 # through them, then put the explicit toolkit first.
@@ -74,21 +79,29 @@ export CUDA_PATH="${CUDA_HOME}" CUDACXX="${CUDA_HOME}/bin/nvcc"
 # because EnvVarForwarding.cmake ignores the env var once the cache has a value.
 export CMAKE_ARGS="-DCUDAToolkit_ROOT=${CUDA_HOME} -DCUDA_TOOLKIT_ROOT_DIR=${CUDA_HOME} -DCMAKE_CUDA_COMPILER=${CUDA_HOME}/bin/nvcc -DBUILD_TEST=OFF ${CMAKE_ARGS:-}"
 
-# CUDA_VERSION_COMPACT (e.g. "133" for CUDA 13.3) -- used by tuned/wheel.sh
-# for the version string and by the venv name below, derived from
-# CUDA_HOME's own directory name so it always matches the toolkit in use.
-CUDA_VERSION_COMPACT="$(basename "$CUDA_HOME" | sed -E 's/^cuda-([0-9]+)\.([0-9]+).*/\1\2/')"
+# CUDA_VERSION_COMPACT (e.g. "133" for CUDA 13.3) is the toolkit id's digits, used by
+# tuned/wheel.sh for the version string.
+CUDA_VERSION_COMPACT="${CUDA_TAG#cu}"
 export CUDA_VERSION_COMPACT
+
+# --- Repo-specific settings (torch arch spelling, KleidiAI, upstream ref), loaded after the
+#     shared device and toolkit values; may not change any of them. ---
+gpu_tuned_load_repo_env "${GPU_TUNED_SELF_DIR}/repo.env" || return 1 2>/dev/null || exit 1
+export GPU_TUNED_TORCH_ARCH GPU_TUNED_USE_KLEIDIAI_SME
 
 # Everything a tuned build produces lives under tuned/build/cu<ver>/ (ignored
 # by git via build/): venv/, cmake/ (CMake build tree, via scikit-build-core's
-# SKBUILD_BUILD_DIR), dist/ (wheels) and ccache/. One tree per toolkit, shared by
+# SKBUILD_BUILD_DIR), dist/ (wheels), releases/ (test and smoke logs) and ccache/. One tree per toolkit, shared by
 # build.sh/wheel.sh/verify_abi.sh.
-GPU_TUNED_BUILD_ROOT="${GPU_TUNED_SELF_DIR}/build/cu${CUDA_VERSION_COMPACT}"
+GPU_TUNED_REPO_ROOT="$(cd "${GPU_TUNED_SELF_DIR}/.." && pwd)"
+# One variant per toolkit tree: refuses a tree last used by another variant.
+gpu_tuned_claim_toolkit_tree "${GPU_TUNED_REPO_ROOT}" "${CUDA_TAG}" "${GPU_TUNED_VARIANT}" || return 1 2>/dev/null || exit 1
+GPU_TUNED_BUILD_ROOT="${GPU_TUNED_REPO_ROOT}/tuned/build/${CUDA_TAG}"
 GPU_TUNED_VENV_DIR="${GPU_TUNED_BUILD_ROOT}/venv"
 GPU_TUNED_CMAKE_DIR="${GPU_TUNED_BUILD_ROOT}/cmake"
 GPU_TUNED_DIST_DIR="${GPU_TUNED_BUILD_ROOT}/dist"
-export GPU_TUNED_BUILD_ROOT GPU_TUNED_VENV_DIR GPU_TUNED_CMAKE_DIR GPU_TUNED_DIST_DIR
+GPU_TUNED_RELEASES_DIR="${GPU_TUNED_BUILD_ROOT}/releases"
+export GPU_TUNED_BUILD_ROOT GPU_TUNED_VENV_DIR GPU_TUNED_CMAKE_DIR GPU_TUNED_DIST_DIR GPU_TUNED_RELEASES_DIR
 export SKBUILD_BUILD_DIR="${GPU_TUNED_CMAKE_DIR}"
 # ccache is isolated per toolkit too, so timings and hits never cross toolkits.
 # CCACHE_DIR makes ccache ignore ~/.config/ccache/ccache.conf, so its 5 GiB
@@ -148,12 +161,15 @@ export MAX_JOBS="${MAX_JOBS:-$(gpu_tuned_jobs)}"
 # fetched, checksum-verified and extracted once into build/<toolkit>/nccl/<tag>/ and used unless
 # GPU_TUNED_NCCL_BUILTIN=1 (build NCCL in-tree, the old path) or GPU_TUNED_NCCL_DIR is already set.
 if [ -z "${GPU_TUNED_NCCL_DIR:-}" ] && [ -z "${GPU_TUNED_NCCL_BUILTIN:-}" ] && [ -f "${GPU_TUNED_SELF_DIR}/nccl.pins" ]; then
-    _nccl_tag="$(awk -v v="${GPU_TUNED_VARIANT}" -v c="cu${CUDA_VERSION_COMPACT}" '$1 !~ /^#/ && $1==v && $2==c {print $3}' "${GPU_TUNED_SELF_DIR}/nccl.pins")"
+    _nccl_tag="$(awk -v v="${GPU_TUNED_VARIANT}" -v c="${CUDA_TAG}" '$1 !~ /^#/ && $1==v && $2==c {print $3}' "${GPU_TUNED_SELF_DIR}/nccl.pins")"
     if [ -n "${_nccl_tag}" ]; then
         bash "${GPU_TUNED_SELF_DIR}/fetch_nccl.sh" "${_nccl_tag}" "${GPU_TUNED_BUILD_ROOT}/nccl/${_nccl_tag}" >&2 || { unset _nccl_tag; return 1 2>/dev/null || exit 1; }
         GPU_TUNED_NCCL_DIR="${GPU_TUNED_BUILD_ROOT}/nccl/${_nccl_tag}"
     else
-        echo "[tuned/env] no NCCL pin for ${GPU_TUNED_VARIANT} cu${CUDA_VERSION_COMPACT} in tuned/nccl.pins: NCCL is built in-tree." >&2
+        echo "[tuned/env] ERROR: no NCCL pin for ${GPU_TUNED_VARIANT} ${CUDA_TAG} in tuned/nccl.pins." >&2
+        echo "  Pin a zbrad/nccl release for it, choose a pinned toolkit (CUDA_TAG=...), or set GPU_TUNED_NCCL_BUILTIN=1 to build NCCL in-tree on purpose." >&2
+        unset _nccl_tag
+        return 1 2>/dev/null || exit 1
     fi
     unset _nccl_tag
 fi
@@ -189,10 +205,6 @@ else
     export GPU_TUNED_BUILD_INFO_DEPS="nccl in-tree (third_party/nccl $(git -C "${GPU_TUNED_SELF_DIR}/../third_party/nccl" describe --tags --long 2>/dev/null || echo unknown))"
 fi
 
-# Which upstream ref the stamp's base is computed against: upstream's default branch. The base
-# recorded is the merge-base with it, i.e. what tuned-builds actually contains (not a tag we
-# have not merged). Override per build with GPU_TUNED_UPSTREAM_REF.
-: "${GPU_TUNED_UPSTREAM_REF:=upstream/main}"
 export GPU_TUNED_UPSTREAM_REF
 
 echo "[tuned/env] GPU_TUNED_VARIANT=${GPU_TUNED_VARIANT} TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} CUDA_HOME=${CUDA_HOME:-<unset>} MAX_JOBS=${MAX_JOBS}"
