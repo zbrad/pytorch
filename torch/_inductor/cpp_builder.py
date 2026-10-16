@@ -1445,11 +1445,12 @@ def _get_torch_related_args(
     if config.aot_inductor.link_libtorch:
         libraries_dirs = [TORCH_LIB_PATH]
         if sys.platform != "darwin" and not config.is_fbcode():
-            libraries.extend(["torch", "torch_cpu"])
+            # zbrad/pytorch tuned-builds: shared objects carry the -tuned suffix (tuned-common ARCHITECTURE F4)
+            libraries.extend(["torch-tuned", "torch_cpu-tuned"])
             if _IS_WINDOWS:
                 libraries.append("c10")
             if not aot_mode:
-                libraries.append("torch_python")
+                libraries.append("torch_python-tuned")
     else:
         libraries_dirs = []
         if config.aot_inductor.cross_target_platform == "windows":
@@ -2271,7 +2272,7 @@ def get_cpp_torch_device_options(
             if config.is_fbcode() or not link_libtorch:
                 libraries += ["cuda"]
             else:
-                libraries += ["cuda", "torch_cuda"]
+                libraries += ["cuda", "torch_cuda-tuned"]
             if config.aot_inductor.cross_target_platform == "windows":
                 extra_libs = _ensure_mingw_cudart_import_lib(libraries_dirs)
                 libraries += ["cudart"] + extra_libs

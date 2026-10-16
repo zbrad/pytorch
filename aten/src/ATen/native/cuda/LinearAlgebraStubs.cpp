@@ -31,7 +31,8 @@ namespace {
 cuda::detail::LinalgDispatch disp = {_cholesky_solve_helper_cuda};
 
 at::DynamicLibrary& getTorchLinalgLibrary() {
-  static at::DynamicLibrary lib("libtorch_cuda_linalg.so", nullptr, true);
+  // zbrad/pytorch tuned-builds: shared objects carry the -tuned suffix (tuned/ARCHITECTURE F4)
+  static at::DynamicLibrary lib("libtorch_cuda_linalg-tuned.so", nullptr, true);
   return lib;
 }
 
@@ -176,7 +177,7 @@ C10_EXPORT void* getCurrentCUDASolverDnHandleLazy() {
   TORCH_CHECK(
       fn != nullptr,
       "Failed to resolve at_cuda_getCurrentCUDASolverDnHandle from "
-      "libtorch_cuda_linalg.so. This usually indicates a version mismatch "
+      "libtorch_cuda_linalg-tuned.so. This usually indicates a version mismatch "
       "or a build missing torch_cuda_linalg.");
   return fn();
 }

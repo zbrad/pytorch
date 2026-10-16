@@ -131,7 +131,8 @@ if(@USE_CUDA@)
   endif()
 
   if(@BUILD_SHARED_LIBS@)
-    find_library(C10_CUDA_LIBRARY c10_cuda PATHS "${TORCH_INSTALL_PREFIX}/lib")
+    # zbrad/pytorch tuned-builds: shared objects carry the -tuned suffix (tuned/ARCHITECTURE F4)
+    find_library(C10_CUDA_LIBRARY c10_cuda-tuned PATHS "${TORCH_INSTALL_PREFIX}/lib")
     list(APPEND TORCH_CUDA_LIBRARIES ${C10_CUDA_LIBRARY} ${Caffe2_PUBLIC_CUDA_DEPENDENCY_LIBS})
   endif()
   list(APPEND TORCH_LIBRARIES ${TORCH_CUDA_LIBRARIES})
@@ -141,7 +142,8 @@ if(@USE_XPU@ AND @BUILD_SHARED_LIBS@)
     append_torchlib_if_found(c10_xpu torch_xpu)
 endif()
 
-find_library(TORCH_LIBRARY torch PATHS "${TORCH_INSTALL_PREFIX}/lib")
+# zbrad/pytorch tuned-builds: shared objects carry the -tuned suffix (tuned/ARCHITECTURE F4)
+find_library(TORCH_LIBRARY torch-tuned PATHS "${TORCH_INSTALL_PREFIX}/lib")
 # the statements below changes target properties on
 # - the imported target from Caffe2Targets.cmake in shared library mode (see the find_dependency above)
 #    - this is untested whether it is the correct (or desired) methodology in CMake

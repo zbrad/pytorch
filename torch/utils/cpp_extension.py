@@ -1487,12 +1487,13 @@ def CppExtension(name, sources, *args, **kwargs):
     kwargs['library_dirs'] = library_dirs
 
     libraries = kwargs.get('libraries', [])
-    libraries.append('c10')
-    libraries.append('torch')
-    libraries.append('torch_cpu')
+    # zbrad/pytorch tuned-builds: shared objects carry the -tuned suffix (tuned-common ARCHITECTURE F4)
+    libraries.append('c10-tuned')
+    libraries.append('torch-tuned')
+    libraries.append('torch_cpu-tuned')
     if not kwargs.get('py_limited_api', False):
         # torch_python uses more than the python limited api
-        libraries.append('torch_python')
+        libraries.append('torch_python-tuned')
     if IS_WINDOWS:
         libraries.append("sleef")
 
@@ -1626,20 +1627,20 @@ def CUDAExtension(name, sources, *args, **kwargs):
     kwargs['library_dirs'] = library_dirs
 
     libraries = kwargs.get('libraries', [])
-    libraries.append('c10')
-    libraries.append('torch')
-    libraries.append('torch_cpu')
+    libraries.append('c10-tuned')
+    libraries.append('torch-tuned')
+    libraries.append('torch_cpu-tuned')
     if not kwargs.get('py_limited_api', False):
         # torch_python uses more than the python limited api
-        libraries.append('torch_python')
+        libraries.append('torch_python-tuned')
     if IS_HIP_EXTENSION:
         libraries.append('amdhip64')
         libraries.append('c10_hip')
         libraries.append('torch_hip')
     else:
         libraries.append('cudart')
-        libraries.append('c10_cuda')
-        libraries.append('torch_cuda')
+        libraries.append('c10_cuda-tuned')
+        libraries.append('torch_cuda-tuned')
     kwargs['libraries'] = libraries
 
     include_dirs = kwargs.get('include_dirs', [])
@@ -2663,19 +2664,19 @@ def _prepare_ldflags(extra_ldflags, with_cuda, with_sycl, verbose, is_standalone
 
     else:
         extra_ldflags.append(f'-L{TORCH_LIB_PATH}')
-        extra_ldflags.append('-lc10')
+        extra_ldflags.append('-lc10-tuned')
         if with_cuda:
-            extra_ldflags.append('-lc10_hip' if IS_HIP_EXTENSION else '-lc10_cuda')
+            extra_ldflags.append('-lc10_hip' if IS_HIP_EXTENSION else '-lc10_cuda-tuned')
         if with_sycl:
             extra_ldflags.append('-lc10_xpu')
-        extra_ldflags.append('-ltorch_cpu')
+        extra_ldflags.append('-ltorch_cpu-tuned')
         if with_cuda:
-            extra_ldflags.append('-ltorch_hip' if IS_HIP_EXTENSION else '-ltorch_cuda')
+            extra_ldflags.append('-ltorch_hip' if IS_HIP_EXTENSION else '-ltorch_cuda-tuned')
         if with_sycl:
             extra_ldflags.append('-ltorch_xpu')
-        extra_ldflags.append('-ltorch')
+        extra_ldflags.append('-ltorch-tuned')
         if not is_standalone:
-            extra_ldflags.append('-ltorch_python')
+            extra_ldflags.append('-ltorch_python-tuned')
 
         if is_standalone:
             extra_ldflags.append(f"-Wl,-rpath,{TORCH_LIB_PATH}")

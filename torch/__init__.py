@@ -405,7 +405,8 @@ def _load_global_deps() -> None:
 
     # Determine the file extension based on the platform
     lib_ext = ".dylib" if platform.system() == "Darwin" else ".so"
-    lib_name = f"libtorch_global_deps{lib_ext}"
+    # zbrad/pytorch tuned-builds: shared objects carry the -tuned suffix (tuned/ARCHITECTURE F4)
+    lib_name = f"libtorch_global_deps-tuned{lib_ext}"
     here = os.path.abspath(__file__)
     global_deps_lib_path = os.path.join(os.path.dirname(here), "lib", lib_name)
 

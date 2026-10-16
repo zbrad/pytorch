@@ -217,7 +217,8 @@ static std::pair<std::unique_ptr<at::DynamicLibrary>, at::cuda::NVRTC*> load_nvr
 #elif defined(__APPLE__)
   std::string libcaffe2_nvrtc = "libcaffe2_nvrtc.dylib";
 #else
-  std::string libcaffe2_nvrtc = "libcaffe2_nvrtc.so";
+  // zbrad/pytorch tuned-builds: shared objects carry the -tuned suffix (tuned/ARCHITECTURE F4)
+  std::string libcaffe2_nvrtc = "libcaffe2_nvrtc-tuned.so";
 #endif
   std::unique_ptr<at::DynamicLibrary> libnvrtc_stub(
       new at::DynamicLibrary(libcaffe2_nvrtc.c_str()));
