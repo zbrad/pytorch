@@ -16,8 +16,8 @@ CUDA_TAG=cu134 bash tuned/smoke_test.sh gb10   # install the packaged wheel, run
 CUDA_TAG=cu134 bash tuned/release.sh gb10      # every gate reported together, then publish
 ```
 
-With neither `CUDA_TAG` nor `CUDA_VER`, `common-data/toolkits/DEFAULT` names the toolkit (currently
-`cu133`, deliberately not the highest defined). A toolkit with no row in `tuned/nccl.pins` stops the
+One of `CUDA_TAG` or `CUDA_VER` is required: there is no default toolkit. With neither, the scripts
+fail and list the defined toolkits (from a terminal they ask which to use, for that run only). A toolkit with no row in `tuned/nccl.pins` stops the
 build: pin a `zbrad/nccl` release for it, or set `GPU_TUNED_NCCL_BUILTIN=1` to build NCCL in-tree.
 
 Everything a build makes lives in `tuned/build/<cuda-tag>/` (ignored by git): `venv/` (build tools),

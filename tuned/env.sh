@@ -7,10 +7,10 @@
 #
 # Device facts come from tuned/common-data/devices/<variant>.conf and the CUDA toolkit from
 # tuned/common-data/toolkits/<id>.env (both vendored from zbrad/tuned-common), never from
-# /usr/local/cuda or from what happens to be installed. With neither CUDA_TAG nor CUDA_VER set
-# the toolkit named in toolkits/DEFAULT is used, and the available list and the reason are
-# printed. Repo-specific settings live in tuned/repo.env, loaded last; it may not change any
-# shared key.
+# /usr/local/cuda or from what happens to be installed. There is no default: CUDA_TAG or CUDA_VER
+# must name one. With neither set the loader fails and lists the defined toolkits (at a terminal
+# it asks which to use, for that run only). Repo-specific settings live in tuned/repo.env, loaded
+# last; it may not change any shared key.
 #
 # Exported: GPU_TUNED_VARIANT/PLATFORM/CUDA_ARCH/HW_LABEL (shared), GPU_TUNED_TORCH_ARCH and
 # GPU_TUNED_USE_KLEIDIAI_SME (repo.env), CUDA_HOME/CUDA_TAG/CUDA_VER (the toolkit),
@@ -50,7 +50,7 @@ source "${GPU_TUNED_SELF_DIR}/common.sh" || return 1 2>/dev/null || exit 1
 gpu_tuned_assert_platform "${GPU_TUNED_PLATFORM}" "${GPU_TUNED_VARIANT}" || return 1 2>/dev/null || exit 1
 
 # --- CUDA toolkit: CUDA_TAG (cu134) or CUDA_VER (13.4) select one from
-#     tuned/common-data/toolkits; neither means toolkits/DEFAULT, stated loudly. ---
+#     tuned/common-data/toolkits; neither set is an error listing the defined ones (no default). ---
 _pytorch_tk="${CUDA_TAG:-}"
 _pytorch_req_ver="${CUDA_VER:-}"
 if [ -z "${_pytorch_tk}" ] && [ -n "${_pytorch_req_ver}" ]; then
