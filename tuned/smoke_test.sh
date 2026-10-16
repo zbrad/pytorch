@@ -65,6 +65,23 @@ ok() { echo "  ok:   $*"; }
         LIB="$(cd "${WORK}" && env -u PYTHONPATH "${PY}" -I -c 'import torch
 print(next(l.split()[-1] for l in open("/proc/self/maps") if "libtorch_cuda.so" in l))' 2>&1 | tail -1)"
         [[ "${LIB}" == "${VENV}/"* ]] && ok "libtorch_cuda.so is mapped from the clean venv: ${LIB}" || fail "libtorch_cuda.so maps from '${LIB}', not from ${VENV}"
+        # Our libraries keep torch's stock names, so prove they cannot be mistaken for stock ones in this
+        # process: every libtorch*/libc10* mapped is the venv's, and no library name is mapped from two
+        # different files (a second libc10.so, say, from LD_LIBRARY_PATH or another torch).
+        NAMES="$(cd "${WORK}" && env -u PYTHONPATH "${PY}" -I -c '
+import collections, os, sys
+import torch
+torch.zeros(1, device="cuda")
+by = collections.defaultdict(set)
+for line in open("/proc/self/maps"):
+    p = line.split()[-1] if line.split() else ""
+    if ".so" in p and p.startswith("/"):
+        by[os.path.basename(p).split(".so")[0]].add(os.path.realpath(p))
+bad = [f"{k}: {sorted(v)}" for k, v in by.items() if len(v) > 1]
+bad += [f"{k} from {sorted(v)}" for k, v in by.items() if k.startswith(("libtorch", "libc10")) and not all(x.startswith(sys.prefix) for x in v)]
+print("\n".join(bad) if bad else "clean")
+' 2>&1 | tail -5)"
+        [[ "${NAMES}" == clean ]] && ok "every libtorch*/libc10* is the venv's and no library name maps from two files" || fail "library identity: ${NAMES}"
 
         # Three real tests, run the way test/run_test.py runs them (python -bb <file> -k <name>) from
         # test/, so sys.path[0] is test/ and torch is the venv's, never the source tree's.
