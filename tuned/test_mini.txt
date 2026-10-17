@@ -1,0 +1,19 @@
+# tuned/test_mini.txt -- the mini tier of tuned/full_test.sh (GPU_TUNED_TEST_SCOPE=mini): a few tests from
+# each area, to see in minutes whether a wheel is sane. Not a release scope: its log ends "Mini test summary"
+# and tuned/release.sh rejects it. Each line:
+#   <test file, relative to test/>   <-k expression: names joined by " or ", or - for the whole file>   # area
+# A line passes when its run ends OK and at least one test really ran (not only skipped). tuned/test_skips.txt
+# applies here too.
+test_cuda.py                  test_memory_stats or test_cublas_multiple_threads_same_device or test_events or test_graph_capture_simple or test_caching_pinned_memory   # CUDA runtime: allocator, streams, events, graphs
+test_cuda_primary_ctx.py      test_set_device_0                                                          # primary context
+test_cuda_trace.py            -                                                                          # CUDA trace hooks (fast)
+test_nn.py                    test_batchnorm_simple_average or test_Transformer_cell                      # nn modules (cuDNN-free paths)
+test_linalg.py                test_matmul_small_brute_force_2d_Nd or test_baddbmm or test_cholesky or test_solve   # linear algebra on CUDA
+test_matmul_cuda.py           test_cublas_addmm or test_cublas_baddbmm                                   # cuBLAS
+test_tensor_creation_ops.py   test_arange or test_linspace or test_zeros_like or test_empty_strided     # tensor creation
+test_reductions.py            test_amax or test_logsumexp or test_sum_dim                                 # reductions
+test_autograd.py              test_backward_copy or test_backward_device                                  # autograd
+test_torch.py                 test_copy_all_dtypes_and_devices or test_copy_broadcast or test_manual_seed  # core tensor ops
+test_transformers.py          test_scaled_dot_product_attention_fp16_overflow or test_scaled_dot_product_attention_fused_kernels_packed   # attention kernels
+test_cpp_extensions_jit.py    test_jit_cuda_extension or test_inline_jit_compile_extension_cuda           # JIT C++/CUDA extensions (the -ltorch... link flags)
+distributed/test_nccl.py      -                                                                          # NCCL module (fast on one GPU)

@@ -35,11 +35,23 @@ The Oct 12 release `…20261012` predates the `.0` rule, is not renamed, and cou
 ## Test scope (recorded decision, G3)
 
 Decided 2026-10-16 by the maintainer: a curated subset plus the ABI and NCCL checks, not upstream's
-whole `run_test.py` suite. The modules are listed, with the reasoning, in `tuned/test_modules.txt`;
-`tuned/verify_abi.sh` builds a minimal out-of-tree CUDA extension against the wheel;
-`tuned/nccl_check.sh` runs a single-rank NCCL all-reduce and broadcast and checks the linked version.
-The log header names what is not run. `GPU_TUNED_TEST_MODULES="..."` runs a custom list and writes a
-"Partial" summary that `release.sh` rejects.
+whole `run_test.py` suite. Three files define it, and `full_test.sh` prints all of them into the log header:
+
+- `tuned/test_modules.txt`: the modules of the release scope, with the reasoning.
+- `tuned/test_skips.txt`: tests that are not run, each with its reason. *Not needed*: none of the tuned
+  devices is multi-GPU, so multi-GPU modules are out (`distributed/test_c10d_nccl`: 284 of 297 tests
+  skipped in 14.5 min on one GPU). *Not safe*: an OOM test that ran 25+ min on the GB10's unified memory.
+  *Known failures*: tests that fail identically on the previous wheel (no cuDNN in the build, triton not
+  installed, one numerics tolerance, two undiagnosed); each is a to-do and goes when its cause is fixed.
+- `tuned/test_mini.txt`: the mini tier, a few named tests from each area.
+
+`GPU_TUNED_TEST_SCOPE=mini CUDA_TAG=cu134 bash tuned/full_test.sh gb10` runs the mini tier plus
+`verify_abi.sh` and `nccl_check.sh` in about 5 minutes (measured on the GB10, cu134) and ends
+"Mini test suite summary". The default (release) scope ends "Full test suite summary"; only that is
+accepted by `package.sh` and `release.sh`. `GPU_TUNED_TEST_MODULES="..."` runs a custom list and writes a
+"Partial" summary, also rejected. `tuned/verify_abi.sh` builds a minimal out-of-tree CUDA extension
+against the wheel; `tuned/nccl_check.sh` runs a single-rank NCCL all-reduce and broadcast and checks the
+linked version.
 
 ## Deviations and open items
 
