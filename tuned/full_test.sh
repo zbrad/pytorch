@@ -100,6 +100,11 @@ echo "installing $(basename "${WHEEL}") and tuned/requirements-test.txt into a c
 env -u PYTHONPATH -u PYTHONHOME "${PY}" -m pip install --quiet "${WHEEL}" -r tuned/requirements-test.txt \
     || { echo "ERROR: pip could not install the wheel and test tooling." >&2; exit 1; }
 
+# Tuned builds are single-GPU (docs/ARCHITECTURE.md; tuned/test_skips.txt): the tests see exactly one device, so
+# the tests that need two or more GPUs skip themselves even on a multi-GPU dev host. GPU_TUNED_TEST_GPUS
+# chooses which one (default 0).
+export CUDA_VISIBLE_DEVICES="${GPU_TUNED_TEST_GPUS:-0}"
+
 # The toolkit's own lib dir first, so the host's ld.so.conf (which follows the /usr/local/cuda
 # symlink) cannot satisfy cudart/cublas from another toolkit.
 export LD_LIBRARY_PATH="${GPU_TUNED_TOOLKIT_LIB_DIR}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
@@ -123,6 +128,7 @@ gpu_tuned_verify_arch "${LIB}" "${GPU_TUNED_TORCH_ARCH}" || exit 1
     echo "nccl:    ${GPU_TUNED_NCCL_URL:-in-tree}"
     echo "tools:   $("${PY}" -m pip freeze 2>/dev/null | grep -iE '^(pytest|expecttest|hypothesis|numpy|setuptools|ninja)[=@ ]' | tr '\n' ' ')"
     echo "scope:   ${SCOPE}"
+    echo "devices: CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES} (single-GPU: multi-GPU tests are not part of a tuned build's scope)"
     echo "modules: ${MODULES[*]:-<mini: see tuned/test_mini.txt>}"
     for l in "${SKIP_LOG[@]}"; do echo "not run (tuned/test_skips.txt): ${l}"; done
     echo "skips by design: multi-GPU NCCL/distributed tests skip on a single-GPU host (counted in the output below); everything outside the module list above is not run."

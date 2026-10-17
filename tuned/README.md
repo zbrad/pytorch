@@ -45,6 +45,11 @@ whole `run_test.py` suite. Three files define it, and `full_test.sh` prints all 
   installed, one numerics tolerance, two undiagnosed); each is a to-do and goes when its cause is fixed.
 - `tuned/test_mini.txt`: the mini tier, a few named tests from each area.
 
+Tuned builds are single-GPU, so "full" excludes multi-GPU tests two ways: whole multi-GPU modules are
+listed in `test_skips.txt`, and `full_test.sh` pins the tests to one device (`CUDA_VISIBLE_DEVICES=0`, or
+`GPU_TUNED_TEST_GPUS`), which makes the multi-GPU tests inside the other modules skip themselves. The
+log header states the device setting.
+
 `GPU_TUNED_TEST_SCOPE=mini CUDA_TAG=cu134 bash tuned/full_test.sh gb10` runs the mini tier plus
 `verify_abi.sh` and `nccl_check.sh` in about 5 minutes (measured on the GB10, cu134) and ends
 "Mini test suite summary". The default (release) scope ends "Full test suite summary"; only that is
