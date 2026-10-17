@@ -14,6 +14,8 @@ module distributed/test_c10d_nccl   needs 2+ GPUs; 284 of 297 skipped in 14.5 mi
 #
 # Not safe here: the GB10 shares 121 GB of unified memory with the host.
 test test_oom_retry_message_logged_at_info   tries to exhaust GPU memory; reran for 25+ min on gb10 unified memory (2026-10-16)
+test test_mempool_oom_recovery_releases_cached_blocks   allocates 7/8 of mem_get_info free memory, which on gb10 is host RAM; it hung the node at 19:34 PDT on 2026-10-16 (OOM, journal stopped, power cycle)
+test test_out_of_memory_retry   allocates 51% of mem_get_info free memory twice; on gb10 that is host RAM; it also failed in the 2026-10-16 full run (same class as the entry above)
 #
 # Known failures, each also failing on the previous wheel (v2.15.0+gb10.cu134.20261012, stock library names), so
 # they are properties of this build or hardware, not of the -tuned rename (checked 2026-10-16). They are skipped
