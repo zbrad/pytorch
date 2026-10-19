@@ -1,15 +1,16 @@
 #!/bin/bash
-# tuned/release.sh <variant> — publish the wheel tuned/package.sh made as a GitHub release, after the
-# gates. Stage order:
+# tuned/release.sh <variant> — run the release gates for the wheel tuned/package.sh made. Stage order:
 #   build.sh -> full_test.sh -> package.sh -> smoke_test.sh -> (review and commit
-#   tuned/releases/RELEASE_NOTES_<version>.md) -> this.
-# It never builds, tests or packages. docs/ARCHITECTURE.md (zbrad/tuned-common) lists every gate.
+#   tuned/releases/RELEASE_NOTES_<version>.md) -> this -> publish.sh.
+# It never builds, tests or packages, and never publishes. If every gate passes it writes a ready-marker
+# (RELEASE_READY_<variant>); tuned/publish.sh <variant> publishes exactly what the gates saw.
+# docs/ARCHITECTURE.md (zbrad/tuned-common) lists every gate.
 #
 #   CUDA_TAG=cu134 bash tuned/release.sh gb10
 #
 # The release is named by the wheel's date label (v<upstream>+<variant>.<cuda>.<YYYYMMDD>[.<seq>]),
 # read from package-info.txt and never recomputed here: the notes commit moves HEAD and its date.
-# The gates are all reported together; nothing is published unless every one passes.
+# The gates are all reported together; no marker is written unless every one passes.
 set -uo pipefail
 
 REPODIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -22,6 +23,8 @@ cd "${REPODIR}" || exit 1
 INFO="${GPU_TUNED_DIST_DIR}/package-info.txt"
 TEST_LOG="${GPU_TUNED_RELEASES_DIR}/TEST_RESULTS_${GPU_TUNED_VARIANT}.log"
 SMOKE_LOG="${GPU_TUNED_RELEASES_DIR}/SMOKE_RESULTS_${GPU_TUNED_VARIANT}.log"
+MARKER="${GPU_TUNED_RELEASES_DIR}/RELEASE_READY_${GPU_TUNED_VARIANT}"
+gpu_tuned_release_marker_clear "${MARKER}"
 
 FAILURES=0
 fail() { echo "  FAIL: $*" >&2; FAILURES=$((FAILURES + 1)); }
@@ -128,14 +131,11 @@ if [[ ${FAILURES} -gt 0 ]]; then
 fi
 
 echo ""
-echo "Publishing to GitHub release ${RELEASE_TAG}..."
-gpu_tuned_publish_release "zbrad/pytorch" "${RELEASE_TAG}" "${RELEASE_TITLE}" \
-    "@${RELEASE_NOTES_FILE}" \
+gpu_tuned_release_ready "${MARKER}" "zbrad/pytorch" "${RELEASE_TAG}" "${RELEASE_TITLE}" \
+    "${RELEASE_NOTES_FILE}" \
     "${WHEEL}#${WHEEL_NAME}" \
     "${WHEEL}.sha256#${WHEEL_NAME}.sha256" \
     "${TEST_LOG}#Test results (${GPU_TUNED_VARIANT})" \
     "${SMOKE_LOG}#Package smoke test results (${GPU_TUNED_VARIANT})" || exit 1
 
-echo ""
-echo "Release: https://github.com/zbrad/pytorch/releases/tag/${RELEASE_TAG}"
 echo "Done."

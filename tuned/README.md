@@ -13,7 +13,8 @@ CUDA_TAG=cu134 bash tuned/full_test.sh gb10    # install that wheel in a clean v
 CUDA_TAG=cu134 bash tuned/package.sh gb10      # stamp a staged copy, sha256, package-info.txt, DRAFT notes
 CUDA_TAG=cu134 bash tuned/smoke_test.sh gb10   # install the packaged wheel, run three repo tests
 # review tuned/releases/RELEASE_NOTES_<version>.md, remove the DRAFT banner, commit and push
-CUDA_TAG=cu134 bash tuned/release.sh gb10      # every gate reported together, then publish
+CUDA_TAG=cu134 bash tuned/release.sh gb10      # every gate reported together; on pass writes RELEASE_READY_gb10 (publishes nothing)
+CUDA_TAG=cu134 bash tuned/publish.sh gb10      # publish exactly what release.sh's gates saw (refuses if HEAD, notes or assets changed)
 ```
 
 One of `CUDA_TAG` or `CUDA_VER` is required: there is no default toolkit. With neither, the scripts
@@ -22,7 +23,7 @@ build: pin a `zbrad/nccl` release for it, or set `GPU_TUNED_NCCL_BUILTIN=1` to b
 
 Everything a build makes lives in `tuned/build/<cuda-tag>/` (ignored by git): `venv/` (build tools),
 `cmake/` and `ccache/`, `wheel/` (the unstamped wheel), `dist/` (the packaged wheel, its `.sha256`,
-`package-info.txt`), `releases/` (test and smoke logs), `build-commit` and `release-label`.
+`package-info.txt`), `releases/` (test and smoke logs, and `RELEASE_READY_<variant>` once release.sh passes), `build-commit` and `release-label`.
 
 ## Identity
 
