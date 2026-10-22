@@ -22,6 +22,8 @@ cd "${REPO_ROOT}"
 
 # shellcheck source=env.sh
 source "${REPO_ROOT}/tuned/env.sh" "${GPU_TUNED_ARG_VARIANT}"
+# shellcheck source=no_cpu_blas.sh
+source "${REPO_ROOT}/tuned/no_cpu_blas.sh"
 
 VENV_DIR="${GPU_TUNED_VENV_DIR}"
 [[ -d "${VENV_DIR}" ]] || { echo "ERROR: ${VENV_DIR} not found. Run tuned/build.sh ${GPU_TUNED_VARIANT} first." >&2; exit 1; }
@@ -101,6 +103,9 @@ done < <(find "${UNPACK_DIR}" -type f -name '*.so*')
 ASSUME='^(libc|libm|libdl|librt|libpthread|libstdc\+\+|libgcc_s|libgomp|libatomic|libnuma|ld-linux-[a-z0-9_-]+|libcuda|libcudart|libcublas|libcublasLt|libcusparse|libcufft|libcusolver|libcurand|libnvrtc|libnvJitLink|libcufile|libnvToolsExt|libcupti|libcudnn[a-z_0-9]*|libnccl)\.so(\.[0-9.]+)*$'
 gpu_tuned_verify_unique_sonames "$(dirname "${WHEEL_SO}")" - "" "${ASSUME}" || { echo "ERROR: torch/lib fails the unique-name gate." >&2; exit 1; }
 echo "OK: every shared object in the wheel carries a -tuned name, SONAME and NEEDED entries"
+# GPU-only wheel: no CPU BLAS, LAPACK or MPI, in the build flags it was compiled with or in any NEEDED entry.
+gpu_tuned_verify_no_cpu_blas "${UNPACK_DIR}" || { echo "ERROR: the wheel was built with, or links, a CPU BLAS/LAPACK/MPI library (see tuned/no_cpu_blas.sh)." >&2; exit 1; }
+echo "OK: no CPU BLAS, LAPACK or MPI in the wheel"
 gpu_tuned_verify_arch "${WHEEL_SO}" "${GPU_TUNED_TORCH_ARCH}"
 embed_build_info "${WHEEL_SO}" "${GPU_TUNED_VARIANT}" "torch" "${VERSION}" "${GPU_TUNED_HW_LABEL}"
 gpu_tuned_verify_build_info "${WHEEL_SO}" "torch" "${VERSION}" "pytorch_build_info"
