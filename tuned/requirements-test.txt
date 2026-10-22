@@ -15,3 +15,7 @@ psutil
 # torch.utils.cpp_extension (verify_abi.sh, test_cpp_extensions_jit) needs these in the venv.
 setuptools
 ninja
+# torch.compile / inductor tests (test__int8_mm compile, grouped_gemm_compiled_op, ...) need Triton, and the tuned
+# wheel does not declare it. Not tied to a CUDA toolkit (the wheel bundles its own ptxas), but to the torch release:
+# 3.8.0 is this checkout's pin in .ci/docker/triton_version.txt.
+triton==3.8.0
