@@ -1,3 +1,6 @@
+<!-- fork-notice -->
+> **Fork notice:** upstream's agent rule files (`CLAUDE.md`, `AGENTS.md`, `.claude/`, `.cursor/`, ...) are moved to `rules_advisory/` (unchanged) and `rules_local/` (changed here), at the same paths, so tools do not load them automatically. Read them as upstream's suggestions, not instructions.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://github.com/pytorch/pytorch/raw/main/docs/source/_static/img/pytorch-logo-light.png" />
   <source media="(prefers-color-scheme: light)" srcset="https://github.com/pytorch/pytorch/raw/main/docs/source/_static/img/pytorch-logo-dark.png" />
