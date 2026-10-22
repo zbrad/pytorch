@@ -80,7 +80,11 @@ export CUDA_PATH="${CUDA_HOME}" CUDACXX="${CUDA_HOME}/bin/nvcc"
 # -DUSE_MPI=OFF: no MPI backend. Upstream turns it on whenever the build node happens to have
 # OpenMPI, which makes every libtorch link libmpi and import torch fail on nodes without it.
 # USE_C10D_MPI is a dependent option and follows. Also -D, for the same cache reason.
-export CMAKE_ARGS="-DCUDAToolkit_ROOT=${CUDA_HOME} -DCUDA_TOOLKIT_ROOT_DIR=${CUDA_HOME} -DCMAKE_CUDA_COMPILER=${CUDA_HOME}/bin/nvcc -DBUILD_TEST=OFF -DUSE_MPI=OFF ${CMAKE_ARGS:-}"
+# -DCMAKE_DISABLE_FIND_PACKAGE_BLAS/LAPACK=ON: a GPU-only wheel links no CPU BLAS or LAPACK. cmake/Dependencies.cmake
+# forces USE_BLAS=1 for a desktop build and drops it to 0 only when no BLAS can be found, so there is no
+# USE_BLAS=OFF switch; hiding the packages is the way. ATen then falls back to its own generic CPU GEMM
+# (slow, but it runs) and CPU LAPACK ops raise "LAPACK library not found in compilation".
+export CMAKE_ARGS="-DCUDAToolkit_ROOT=${CUDA_HOME} -DCUDA_TOOLKIT_ROOT_DIR=${CUDA_HOME} -DCMAKE_CUDA_COMPILER=${CUDA_HOME}/bin/nvcc -DBUILD_TEST=OFF -DUSE_MPI=OFF -DCMAKE_DISABLE_FIND_PACKAGE_BLAS=ON -DCMAKE_DISABLE_FIND_PACKAGE_LAPACK=ON ${CMAKE_ARGS:-}"
 
 # CUDA_VERSION_COMPACT (e.g. "133" for CUDA 13.3) is the toolkit id's digits, used by
 # tuned/package.sh for the version string.
