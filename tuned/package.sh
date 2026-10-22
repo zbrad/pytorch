@@ -98,7 +98,7 @@ while IFS= read -r so; do
 done < <(find "${UNPACK_DIR}" -type f -name '*.so*')
 [[ "${NAME_VIOLATIONS}" -eq 0 ]] || { echo "ERROR: the wheel still carries stock torch library names; it was built without the -tuned rename (tuned/build.sh does it)." >&2; exit 1; }
 # Every lib*.so in torch/lib is ours (-tuned) or an assumed system/CUDA library; every NEEDED resolves in the stage or is assumed.
-ASSUME='^(libc|libm|libdl|librt|libpthread|libstdc\+\+|libgcc_s|libgomp|libatomic|libnuma|libmpi|libmpi_cxx|ld-linux-[a-z0-9_-]+|libcuda|libcudart|libcublas|libcublasLt|libcusparse|libcufft|libcusolver|libcurand|libnvrtc|libnvJitLink|libcufile|libnvToolsExt|libcupti|libcudnn[a-z_0-9]*|libnccl)\.so(\.[0-9.]+)*$'
+ASSUME='^(libc|libm|libdl|librt|libpthread|libstdc\+\+|libgcc_s|libgomp|libatomic|libnuma|ld-linux-[a-z0-9_-]+|libcuda|libcudart|libcublas|libcublasLt|libcusparse|libcufft|libcusolver|libcurand|libnvrtc|libnvJitLink|libcufile|libnvToolsExt|libcupti|libcudnn[a-z_0-9]*|libnccl)\.so(\.[0-9.]+)*$'
 gpu_tuned_verify_unique_sonames "$(dirname "${WHEEL_SO}")" - "" "${ASSUME}" || { echo "ERROR: torch/lib fails the unique-name gate." >&2; exit 1; }
 echo "OK: every shared object in the wheel carries a -tuned name, SONAME and NEEDED entries"
 gpu_tuned_verify_arch "${WHEEL_SO}" "${GPU_TUNED_TORCH_ARCH}"

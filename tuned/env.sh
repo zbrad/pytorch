@@ -77,7 +77,10 @@ export CUDA_PATH="${CUDA_HOME}" CUDACXX="${CUDA_HOME}/bin/nvcc"
 # -DBUILD_TEST=OFF: skip the C++ test binaries (GCC 14.2 ICEs on the
 # vec_test_all_types_SVE128 target). Passed as -D, not the BUILD_TEST env var,
 # because EnvVarForwarding.cmake ignores the env var once the cache has a value.
-export CMAKE_ARGS="-DCUDAToolkit_ROOT=${CUDA_HOME} -DCUDA_TOOLKIT_ROOT_DIR=${CUDA_HOME} -DCMAKE_CUDA_COMPILER=${CUDA_HOME}/bin/nvcc -DBUILD_TEST=OFF ${CMAKE_ARGS:-}"
+# -DUSE_MPI=OFF: no MPI backend. Upstream turns it on whenever the build node happens to have
+# OpenMPI, which makes every libtorch link libmpi and import torch fail on nodes without it.
+# USE_C10D_MPI is a dependent option and follows. Also -D, for the same cache reason.
+export CMAKE_ARGS="-DCUDAToolkit_ROOT=${CUDA_HOME} -DCUDA_TOOLKIT_ROOT_DIR=${CUDA_HOME} -DCMAKE_CUDA_COMPILER=${CUDA_HOME}/bin/nvcc -DBUILD_TEST=OFF -DUSE_MPI=OFF ${CMAKE_ARGS:-}"
 
 # CUDA_VERSION_COMPACT (e.g. "133" for CUDA 13.3) is the toolkit id's digits, used by
 # tuned/package.sh for the version string.
