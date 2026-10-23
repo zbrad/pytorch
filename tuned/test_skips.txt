@@ -45,5 +45,13 @@ test test_lobpcg_basic_cuda   known failure: the CUDA variant of _test_lobpcg_me
 test test_lobpcg_ortho_cuda   known failure: same CPU torch.Tensor block as test_lobpcg_basic_cuda, via _update_ortho (torch/_lobpcg.py:915)
 test test_preferred_linalg_library_cuda   known failure: builds its reference with torch.linalg.inv(x.cpu()) (test_linalg.py:11727), which needs CPU LAPACK
 #
+# Hardware/library behavior, not a build effect. Fails every time, alone and in the suite (2026-10-22, wheel
+# 20261022.0, cuBLAS from CUDA 13.4 on sm_121).
+#   test_cublas_batch_invariance_blackwell: x[:1] @ w differs from (x @ w)[:1] under cuBLASLt with the reduced-
+#   precision reductions off (6/2048 elements bf16, 23/2048 fp16; the batched=True variants pass). The test is gated
+#   by SM100OrLater (capability >= 10.0), which includes the GB10 (12.1); that cuBLAS only promises batch invariance
+#   on 10.x is my guess, not checked. Matmul results on gb10 are therefore NOT batch-invariant for these shapes.
+test test_cublas_batch_invariance_blackwell_batched_False   known failure (2 tests: bf16, fp16): cuBLASLt result depends on the batch size on sm_121; see the note above
+#
 # Not a reliable test.
 test test_call_count_tunableop   not a reliable check either way: counts profiler events whose name contains "kernel" (a cutlass::Kernel2<...> event does not match). Passes alone and with its class, and TunableOp does pick 3 kernels there; got 0 in the 2026-10-22 full run (cause not found)
