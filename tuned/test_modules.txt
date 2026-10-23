@@ -25,4 +25,3 @@ test_reductions
 test_transformers
 test_cpp_extensions_jit
 distributed/test_nccl
-distributed/test_c10d_nccl

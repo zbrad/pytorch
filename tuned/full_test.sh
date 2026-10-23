@@ -97,8 +97,10 @@ trap 'rm -rf "${TESTENV}"' EXIT
 PY="${TESTENV}/venv/bin/python"
 python3 -m venv "${TESTENV}/venv" || exit 1
 echo "installing $(basename "${WHEEL}") and tuned/requirements-test.txt into a clean venv"
-env -u PYTHONPATH -u PYTHONHOME "${PY}" -m pip install --quiet "${WHEEL}" -r tuned/requirements-test.txt \
-    || { echo "ERROR: pip could not install the wheel and test tooling." >&2; exit 1; }
+# pip's output goes into the results log (the venv is deleted on exit, and this is the only record of what was installed).
+PIP_LOG="${TESTENV}/pip_install.log"
+env -u PYTHONPATH -u PYTHONHOME "${PY}" -m pip install "${WHEEL}" -r tuned/requirements-test.txt > "${PIP_LOG}" 2>&1 \
+    || { cat "${PIP_LOG}" >&2; echo "ERROR: pip could not install the wheel and test tooling." >&2; exit 1; }
 
 # Tuned builds are single-GPU (docs/ARCHITECTURE.md; tuned/test_skips.txt): the tests see exactly one device, so
 # the tests that need two or more GPUs skip themselves even on a multi-GPU dev host. GPU_TUNED_TEST_GPUS
@@ -126,7 +128,7 @@ gpu_tuned_verify_arch "${LIB}" "${GPU_TUNED_TORCH_ARCH}" || exit 1
     echo "wheel:   $(basename "${WHEEL}") sha256 $(sha256sum "${WHEEL}" | awk '{print $1}')"
     echo "torch:   $(cd "${TESTENV}" && "${PY}" -I -c 'import torch; print(torch.__version__, "cuda", torch.version.cuda, torch.cuda.get_device_name(0))' 2>&1 | tail -1)"
     echo "nccl:    ${GPU_TUNED_NCCL_URL:-in-tree}"
-    echo "tools:   $("${PY}" -m pip freeze 2>/dev/null | grep -iE '^(pytest|expecttest|hypothesis|numpy|setuptools|ninja)[=@ ]' | tr '\n' ' ')"
+    echo "tools:   $("${PY}" -m pip freeze 2>/dev/null | grep -iE '^(pytest|expecttest|hypothesis|numpy|setuptools|ninja|triton)[=@ ]' | tr '\n' ' ')"
     echo "scope:   ${SCOPE}"
     echo "devices: CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES} (single-GPU: multi-GPU tests are not part of a tuned build's scope)"
     echo "modules: ${MODULES[*]:-<mini: see tuned/test_mini.txt>}"
@@ -135,6 +137,17 @@ gpu_tuned_verify_arch "${LIB}" "${GPU_TUNED_TORCH_ARCH}" || exit 1
     echo "gates: wheel installed in a clean venv; libtorch_cuda-tuned.so loaded from it; toolkit libs resolve under ${CUDA_HOME}; single-arch ${GPU_TUNED_TORCH_ARCH}; build commit ${BUILD_COMMIT} == HEAD outside tuned/"
     echo ""
 } > "${RESULTS_FILE}"
+
+{
+    echo "=== venv setup (throwaway venv, deleted on exit) ==="
+    echo "--- pip install output ---"
+    cat "${PIP_LOG}"
+    echo "--- pip freeze ---"
+    "${PY}" -m pip freeze 2>&1
+    echo "--- triton ---"
+    (cd "${TESTENV}" && env -u PYTHONPATH "${PY}" -I -c 'import triton; print("triton", triton.__version__)' 2>&1 | tail -1)
+    echo ""
+} >> "${RESULTS_FILE}"
 
 STATUS=0
 echo "=== tuned/verify_abi.sh ===" | tee -a "${RESULTS_FILE}"
@@ -180,15 +193,29 @@ else
     # would load the source tree's torch/ (no built libraries). Import the wheel's torch first, from the
     # test/ directory, then run the script in this interpreter.
     echo "=== test/run_test.py --keep-going${SKIP_EXPR:+ --pytest-k-expr '${SKIP_EXPR}'} -i ${MODULES[*]} ===" | tee -a "${RESULTS_FILE}"
-    (cd "${REPODIR}/test" && env -u PYTHONPATH "${PY}" -I -c '
+    # tuned/pytest_plugins/tuned_skip_reasons.py records why tests skip (run_test.py appends its own -rfEX after any
+    # extra argument, so -rs cannot be added from here). Its directory is the only thing on PYTHONPATH, for the
+    # test subprocesses; this wrapper runs with -I and ignores it.
+    export GPU_TUNED_SKIP_LOG="${TESTENV}/skip_reasons.tsv"
+    (cd "${REPODIR}/test" && env PYTHONPATH="${REPODIR}/tuned/pytest_plugins" "${PY}" -I -c '
 import runpy, sys
 import torch
 assert torch.__file__.startswith(sys.prefix), torch.__file__
 k = sys.argv[1]
-sys.argv = ["run_test.py", "--keep-going"] + (["--pytest-k-expr", k] if k else []) + ["-i", *sys.argv[2:]]
+sys.argv = ["run_test.py", "--keep-going", "-p", "tuned_skip_reasons"] + (["--pytest-k-expr", k] if k else []) + ["-i", *sys.argv[2:]]
 runpy.run_path("run_test.py", run_name="__main__")
 ' "${SKIP_EXPR}" "${MODULES[@]}") 2>&1 | tee -a "${RESULTS_FILE}"
     [[ ${PIPESTATUS[0]} -eq 0 ]] || STATUS=1
+    if [[ -s "${GPU_TUNED_SKIP_LOG}" ]]; then
+        # Multi-GPU is matched on the reason text, so the count is a lower bound on tests that need more than one GPU.
+        MULTI_RE='(multi|multiple|2\+|at least 2|two|more than one).{0,12}(gpu|cuda|device)|world.?size|p2p|(only )?one gpu'
+        {
+            echo ""
+            echo "=== skipped tests by reason (count, module, reason; top 40) ==="
+            sort "${GPU_TUNED_SKIP_LOG}" | uniq -c | sort -rn | head -40 | cut -c1-220
+            echo "skipped in total: $(wc -l < "${GPU_TUNED_SKIP_LOG}"); reason text mentions multi-GPU (p2p, one GPU, ...): $(cut -f2- "${GPU_TUNED_SKIP_LOG}" | grep -ciE "${MULTI_RE}")"
+        } | tee -a "${RESULTS_FILE}"
+    fi
 fi
 
 echo "" >> "${RESULTS_FILE}"
