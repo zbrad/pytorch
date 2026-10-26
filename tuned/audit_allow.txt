@@ -1,0 +1,5 @@
+# tuned/audit_allow.txt -- advisories that tuned/audit_deps.sh (the dependency audit in package.sh) accepts.
+# One per line: <advisory id (GHSA, CVE or PYSEC)>  <reason>. A line without a reason fails the audit. An
+# accepted id is printed in the package log as ACCEPTED, with its reason, so it stays visible.
+# Only a vulnerable dependency that has a fixed version fails the audit; one with no fix is a warning already.
+# Accept an id here only when the wheel's dependency really cannot take the fixed version.

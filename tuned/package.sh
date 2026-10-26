@@ -24,6 +24,8 @@ cd "${REPO_ROOT}"
 source "${REPO_ROOT}/tuned/env.sh" "${GPU_TUNED_ARG_VARIANT}"
 # shellcheck source=no_cpu_blas.sh
 source "${REPO_ROOT}/tuned/no_cpu_blas.sh"
+# shellcheck source=audit_deps.sh
+source "${REPO_ROOT}/tuned/audit_deps.sh"
 
 VENV_DIR="${GPU_TUNED_VENV_DIR}"
 [[ -d "${VENV_DIR}" ]] || { echo "ERROR: ${VENV_DIR} not found. Run tuned/build.sh ${GPU_TUNED_VARIANT} first." >&2; exit 1; }
@@ -106,6 +108,9 @@ echo "OK: every shared object in the wheel carries a -tuned name, SONAME and NEE
 # GPU-only wheel: no CPU BLAS, LAPACK or MPI, in the build flags it was compiled with or in any NEEDED entry.
 gpu_tuned_verify_no_cpu_blas "${UNPACK_DIR}" || { echo "ERROR: the wheel was built with, or links, a CPU BLAS/LAPACK/MPI library (see tuned/no_cpu_blas.sh)." >&2; exit 1; }
 echo "OK: no CPU BLAS, LAPACK or MPI in the wheel"
+# The Python packages `pip install <wheel>` pulls in: none may be a known-vulnerable version that has a fix (needs the network;
+# a check that cannot run is a failure). Accepted advisories are listed in tuned/audit_allow.txt.
+gpu_tuned_audit_deps "${BUILT}" "${GPU_TUNED_BUILD_ROOT}/dependency-audit.log" || { echo "ERROR: dependency audit failed (see above and ${GPU_TUNED_BUILD_ROOT}/dependency-audit.log, tuned/audit_deps.sh)." >&2; exit 1; }
 gpu_tuned_verify_arch "${WHEEL_SO}" "${GPU_TUNED_TORCH_ARCH}"
 embed_build_info "${WHEEL_SO}" "${GPU_TUNED_VARIANT}" "torch" "${VERSION}" "${GPU_TUNED_HW_LABEL}"
 gpu_tuned_verify_build_info "${WHEEL_SO}" "torch" "${VERSION}" "pytorch_build_info"
