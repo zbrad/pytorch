@@ -29,21 +29,8 @@ source "${REPO_ROOT}/tuned/env.sh" "${GPU_TUNED_ARG_VARIANT}"
 command -v python3 &>/dev/null || { echo "ERROR: python3 not found on PATH." >&2; exit 1; }
 
 VENV_DIR="${GPU_TUNED_VENV_DIR}"
-if [[ "${GPU_TUNED_CLEAN_VENV:-}" == "1" && -d "${VENV_DIR}" ]]; then
-    echo "GPU_TUNED_CLEAN_VENV=1: removing ${VENV_DIR} for a clean rebuild"
-    rm -rf "${VENV_DIR}"
-fi
-if [[ -d "${VENV_DIR}" ]]; then
-    # Reusing an existing venv (the default -- this is a multi-hour
-    # compile, not something to redo every run) -- verify it wasn't
-    # copied/contaminated from another repo before building on top of it.
-    # Set GPU_TUNED_CLEAN_VENV=1 to force a fresh venv instead.
-    gpu_tuned_verify_venv "${VENV_DIR}" "${REPO_ROOT}"
-else
-    python3 -m venv "${VENV_DIR}"
-fi
-# shellcheck source=/dev/null
-source "${VENV_DIR}/bin/activate"
+# Create or reuse (verified), activate, upgrade pip, current setuptools: one shared setup (C9, tuned-common).
+gpu_tuned_setup_build_venv "${VENV_DIR}" "${REPO_ROOT}" || exit 1
 
 echo "=========================================="
 echo "Building pytorch for ${GPU_TUNED_HW_LABEL} only"
@@ -61,6 +48,8 @@ echo "Installing build-time requirements..."
 pip install --upgrade pip
 [ -f requirements.txt ] && pip install -r requirements.txt
 pip install "typing-extensions>=4.10.0" "scikit-build-core>=1.0" build wheel
+# The current setuptools, installed last (C8, tuned-common): requirements.txt (upstream) can cap it.
+gpu_tuned_install_setuptools || exit 1
 
 # third_party/nccl is a nested checkout, not a tracked git submodule of
 # this repo (third_party/nccl/ is gitignored here) -- a local fix there
