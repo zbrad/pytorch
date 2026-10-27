@@ -2827,8 +2827,13 @@ report, wheel = sys.argv[1], sys.argv[2]
 own = re.sub(r"[-_.]+", "-", wheel.rsplit("/", 1)[-1].split("-", 1)[0]).lower()
 for item in json.load(open(report))["install"]:
     meta = item["metadata"]
-    if re.sub(r"[-_.]+", "-", meta["name"]).lower() != own:
-        sys.stdout.write(f'{meta["name"]}=={meta["version"]}\n')
+    if re.sub(r"[-_.]+", "-", meta["name"]).lower() == own:
+        continue
+    if item.get("is_direct"):
+        # A direct-URL dependency (our own tuned torch or flashinfer wheel) has a local version that is not on PyPI.
+        sys.stderr.write(f'not audited (direct URL, not on PyPI): {meta["name"]}=={meta["version"]}\n')
+        continue
+    sys.stdout.write(f'{meta["name"]}=={meta["version"]}\n')
 PY
         fi
         if [[ ${rc} -eq 0 ]]; then
@@ -2880,6 +2885,61 @@ PY
     grep -q '^RESULT: no vulnerable package has a fix available$' "${log}" || rc=1
     rm -rf "${work}"
     return "${rc}"
+}
+
+# gpu_tuned_install_setuptools -- put the current setuptools release in the active build venv, last (C8). setuptools is a
+# critical build component and upstream's requirement files cap it (vllm: <81, torch: <82), so a later `pip install -r`
+# can pull it back down; call this after the last other pip install in build.sh. It upgrades to the newest release and
+# fails if the result is older than GPU_TUNED_SETUPTOOLS_MIN (84.2, the user's floor of 2026-10-26; it is above the
+# releases that fixed the advisories the dependency audit found: GHSA-xmj3-9gf7-h52w in 84.1.0, PYSEC-2026-3447 in 83.0.0).
+# Prints the version so the build log records it.
+GPU_TUNED_SETUPTOOLS_MIN="${GPU_TUNED_SETUPTOOLS_MIN:-84.2}"
+
+gpu_tuned_install_setuptools() {
+    local have
+    python3 -m pip install --quiet --disable-pip-version-check --upgrade "setuptools>=${GPU_TUNED_SETUPTOOLS_MIN}" \
+        || { echo "ERROR: could not install setuptools>=${GPU_TUNED_SETUPTOOLS_MIN} (network? an index without it?)." >&2; return 1; }
+    have="$(python3 -c 'import setuptools; print(setuptools.__version__)')" || return 1
+    printf '%s\n%s\n' "${GPU_TUNED_SETUPTOOLS_MIN}" "${have}" | sort -V -C \
+        || { echo "ERROR: setuptools ${have} is older than the minimum ${GPU_TUNED_SETUPTOOLS_MIN}." >&2; return 1; }
+    echo "setuptools ${have} (current release; minimum ${GPU_TUNED_SETUPTOOLS_MIN})"
+}
+
+# gpu_tuned_setup_build_venv <venv-dir> <repo-root> -- the one way a build.sh gets its Python build venv (C9). It honours
+# GPU_TUNED_CLEAN_VENV=1 (remove first), creates the venv or, if it exists, refuses one copied from another checkout
+# (gpu_tuned_verify_venv), activates it in the calling shell, upgrades pip, and puts the current setuptools in
+# (gpu_tuned_install_setuptools), so setuptools is never missing or old for anything the build installs afterwards. A
+# build still ends its own pip section with gpu_tuned_install_setuptools (C8): a later `pip install -r` can pull it back down.
+gpu_tuned_setup_build_venv() {
+    local venv_dir="${1:?usage: gpu_tuned_setup_build_venv <venv-dir> <repo-root>}" repo_root="${2:?usage: gpu_tuned_setup_build_venv <venv-dir> <repo-root>}"
+    command -v python3 &>/dev/null || { echo "ERROR: python3 not found on PATH." >&2; return 1; }
+    if [[ "${GPU_TUNED_CLEAN_VENV:-}" == "1" && -d "${venv_dir}" ]]; then
+        echo "GPU_TUNED_CLEAN_VENV=1: removing ${venv_dir} for a clean rebuild"
+        rm -rf "${venv_dir}"
+    fi
+    if [[ -d "${venv_dir}" ]]; then
+        # Reusing the venv is the default: the install is slow. Verify it was not copied from another checkout.
+        gpu_tuned_verify_venv "${venv_dir}" "${repo_root}" || return 1
+    else
+        python3 -m venv "${venv_dir}" || return 1
+    fi
+    # shellcheck source=/dev/null
+    source "${venv_dir}/bin/activate" || return 1
+    python3 -m pip install --quiet --disable-pip-version-check --upgrade pip || { echo "ERROR: could not upgrade pip in ${venv_dir}." >&2; return 1; }
+    gpu_tuned_install_setuptools
+}
+
+# gpu_tuned_check_venv_setuptools <venv-dir> -- the package-time gate (H10): the build venv's setuptools is at least
+# GPU_TUNED_SETUPTOOLS_MIN. Reads the venv's own python, not PATH. A reused venv that predates the minimum, or one that
+# was never set up by gpu_tuned_setup_build_venv, fails here instead of shipping a wheel built on it.
+gpu_tuned_check_venv_setuptools() {
+    local venv_dir="${1:?usage: gpu_tuned_check_venv_setuptools <venv-dir>}" have
+    [[ -x "${venv_dir}/bin/python" ]] || { echo "ERROR: no build venv python at ${venv_dir}/bin/python; the setuptools minimum cannot be checked." >&2; return 1; }
+    have="$("${venv_dir}/bin/python" -c 'import setuptools; print(setuptools.__version__)' 2>/dev/null)" \
+        || { echo "ERROR: the build venv ${venv_dir} has no importable setuptools." >&2; return 1; }
+    printf '%s\n%s\n' "${GPU_TUNED_SETUPTOOLS_MIN}" "${have}" | sort -V -C \
+        || { echo "ERROR: the build venv ${venv_dir} has setuptools ${have}, older than the minimum ${GPU_TUNED_SETUPTOOLS_MIN} (rebuild with GPU_TUNED_CLEAN_VENV=1 or run build.sh again)." >&2; return 1; }
+    echo "build venv setuptools ${have} (minimum ${GPU_TUNED_SETUPTOOLS_MIN})"
 }
 
 if [[ -z "${GPU_TUNED_NO_ERR_TRAP:-}" && -z "$(trap -p ERR)" ]]; then
