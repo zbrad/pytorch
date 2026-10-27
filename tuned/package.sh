@@ -28,6 +28,8 @@ source "${REPO_ROOT}/tuned/no_cpu_blas.sh"
 VENV_DIR="${GPU_TUNED_VENV_DIR}"
 [[ -d "${VENV_DIR}" ]] || { echo "ERROR: ${VENV_DIR} not found. Run tuned/build.sh ${GPU_TUNED_VARIANT} first." >&2; exit 1; }
 gpu_tuned_verify_venv "${VENV_DIR}" "${REPO_ROOT}"
+# The wheel was built in this venv: its setuptools must meet the common minimum (H10, tuned-common).
+gpu_tuned_check_venv_setuptools "${VENV_DIR}" || exit 1
 # shellcheck source=/dev/null
 source "${VENV_DIR}/bin/activate"
 
