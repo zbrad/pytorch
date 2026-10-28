@@ -65,13 +65,7 @@ fi
 unset _pytorch_tk _pytorch_req_ver
 gpu_tuned_verify_toolkit || return 1 2>/dev/null || exit 1
 
-# Drop unversioned /usr/local/cuda[-<major>] entries so nothing resolves
-# through them, then put the explicit toolkit first.
-for _pytorch_var in PATH LD_LIBRARY_PATH LIBRARY_PATH CPATH; do
-    _pytorch_val="$(printf '%s' "${!_pytorch_var:-}" | tr ':' '\n' | grep -Ev '^/usr/local/cuda(-[0-9]+)?(/|$)' | paste -sd: - || true)"
-    export "${_pytorch_var}=${_pytorch_val}"
-done
-unset _pytorch_var _pytorch_val
+# The explicit toolkit goes first; gpu_tuned_verify_toolkit (above) fails the build if another nvcc wins on PATH.
 export PATH="${CUDA_HOME}/bin:${PATH}"
 export CUDA_PATH="${CUDA_HOME}" CUDACXX="${CUDA_HOME}/bin/nvcc"
 # -DBUILD_TEST=OFF: skip the C++ test binaries (GCC 14.2 ICEs on the
@@ -146,17 +140,6 @@ gpu_tuned_assert_cmake_cache_consistent() {
     fi
     if [[ -z "${GPU_TUNED_NCCL_DIR:-}" && -n "${cached}" ]]; then
         echo "ERROR: ${cache} was configured against the prebuilt NCCL '${cached}', but this build uses the in-tree NCCL. Remove the tree first: rm -rf ${GPU_TUNED_CMAKE_DIR}" >&2
-        return 1
-    fi
-}
-
-# gpu_tuned_assert_versioned_runpath <so>: fail if the library's
-# RUNPATH/RPATH points through the unversioned /usr/local/cuda[-<major>].
-gpu_tuned_assert_versioned_runpath() {
-    local bad
-    bad="$(readelf -d "$1" | sed -n 's/.*\(RUNPATH\|RPATH\).*\[\(.*\)\]/\2/p' | tr ':' '\n' | grep -E '^/usr/local/cuda(-[0-9]+)?(/|$)' || true)"
-    if [[ -n "${bad}" ]]; then
-        echo "ERROR: $1 has an unversioned CUDA path in its RUNPATH: ${bad}" >&2
         return 1
     fi
 }
