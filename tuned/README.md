@@ -77,3 +77,11 @@ linked version.
 - **cuDNN:** a smoke run printed "PyTorch was compiled without cuDNN/MIOpen support" for the cu134
   wheel. Not investigated here.
 - **rtx40/rtx50** are defined in `common-data` but have never been built from this repo.
+
+## Build venv and gates
+
+- The venv is `tuned/build/<cuda-tag>/venv`, made by `gpu_tuned_setup_build_venv`; `GPU_TUNED_CLEAN_VENV=1` recreates it.
+  `build.sh` ends its pip section with the current setuptools (at least 84.2, C8).
+- `package.sh` fails if the venv's setuptools is below the minimum (H10) and audits the wheel's runtime dependencies (H9),
+  logged to `tuned/build/<cuda-tag>/dependency-audit.log`. A wheel built in an older reused venv fails H10 until
+  `build.sh` is run again.
