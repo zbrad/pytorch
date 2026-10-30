@@ -191,19 +191,25 @@ if [[ ${MINI} -eq 1 ]]; then
 else
     # run_test.py puts the repo root first on sys.path while it imports upstream's test tooling, which
     # would load the source tree's torch/ (no built libraries). Import the wheel's torch first, from the
-    # test/ directory, then run the script in this interpreter.
+    # test/ directory, then run the script in this interpreter, in the real __main__ module: importing torch
+    # imports multiprocessing.spawn, which aliases __mp_main__ to the __main__ of that moment. Under
+    # runpy.run_path, run_test.py's classes live in a temporary module, so the parent cannot unpickle a
+    # worker's TestFailure (__mp_main__.TestFailure); the pool's result thread dies and pool.join() hangs.
     echo "=== test/run_test.py --keep-going${SKIP_EXPR:+ --pytest-k-expr '${SKIP_EXPR}'} -i ${MODULES[*]} ===" | tee -a "${RESULTS_FILE}"
     # tuned/pytest_plugins/tuned_skip_reasons.py records why tests skip (run_test.py appends its own -rfEX after any
     # extra argument, so -rs cannot be added from here). Its directory is the only thing on PYTHONPATH, for the
     # test subprocesses; this wrapper runs with -I and ignores it.
     export GPU_TUNED_SKIP_LOG="${TESTENV}/skip_reasons.tsv"
     (cd "${REPODIR}/test" && env PYTHONPATH="${REPODIR}/tuned/pytest_plugins" "${PY}" -I -c '
-import runpy, sys
+import __main__, sys
 import torch
 assert torch.__file__.startswith(sys.prefix), torch.__file__
 k = sys.argv[1]
 sys.argv = ["run_test.py", "--keep-going", "-p", "tuned_skip_reasons"] + (["--pytest-k-expr", k] if k else []) + ["-i", *sys.argv[2:]]
-runpy.run_path("run_test.py", run_name="__main__")
+__main__.__file__ = "run_test.py"
+with open("run_test.py", encoding="utf-8") as f:
+    code = compile(f.read(), "run_test.py", "exec")
+exec(code, __main__.__dict__)
 ' "${SKIP_EXPR}" "${MODULES[@]}") 2>&1 | tee -a "${RESULTS_FILE}"
     [[ ${PIPESTATUS[0]} -eq 0 ]] || STATUS=1
     if [[ -s "${GPU_TUNED_SKIP_LOG}" ]]; then
