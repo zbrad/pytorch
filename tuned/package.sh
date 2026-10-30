@@ -106,7 +106,7 @@ ASSUME='^(libc|libm|libdl|librt|libpthread|libstdc\+\+|libgcc_s|libgomp|libatomi
 gpu_tuned_verify_unique_sonames "$(dirname "${WHEEL_SO}")" - "" "${ASSUME}" || { echo "ERROR: torch/lib fails the unique-name gate." >&2; exit 1; }
 echo "OK: every shared object in the wheel carries a -tuned name, SONAME and NEEDED entries"
 # GPU-only wheel: no CPU BLAS, LAPACK or MPI, in the build flags it was compiled with or in any NEEDED entry.
-gpu_tuned_verify_no_cpu_blas "${UNPACK_DIR}" || { echo "ERROR: the wheel was built with, or links, a CPU BLAS/LAPACK/MPI library (see tuned/no_cpu_blas.sh)." >&2; exit 1; }
+pytorch_verify_no_cpu_blas "${UNPACK_DIR}" || { echo "ERROR: the wheel was built with, or links, a CPU BLAS/LAPACK/MPI library (see tuned/no_cpu_blas.sh)." >&2; exit 1; }
 echo "OK: no CPU BLAS, LAPACK or MPI in the wheel"
 # The Python packages `pip install <wheel>` pulls in: none may be a known-vulnerable version that has a fix (needs the network;
 # a check that cannot run is a failure). Accepted advisories are listed in tuned/audit_allow.txt.

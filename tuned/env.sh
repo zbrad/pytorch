@@ -112,25 +112,18 @@ export SKBUILD_BUILD_DIR="${GPU_TUNED_CMAKE_DIR}"
 export CCACHE_DIR="${GPU_TUNED_BUILD_ROOT}/ccache"
 export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-60G}"
 
-# gpu_tuned_assert_cmake_cache_consistent: fail if an existing CMake cache
+# pytorch_assert_cmake_cache_consistent: fail if an existing CMake cache
 # was configured for a different toolkit than CUDA_HOME (it would silently
 # keep using the old one) or for a different source tree (a build dir copied
 # from another checkout; common.sh's gpu_tuned_verify_venv only looks at
-# <repo>/build, not this directory).
-gpu_tuned_assert_cmake_cache_consistent() {
-    local cache="${GPU_TUNED_CMAKE_DIR}/CMakeCache.txt" cached repo_root
+# <repo>/build, not this directory). Those two checks are common.sh's
+# gpu_tuned_assert_cmake_cache_consistent (PyTorch's CMake source tree is the
+# repo root, not <repo>/cpp); the NCCL checks below are this repo's own.
+GPU_TUNED_CMAKE_SOURCE_DIR="${GPU_TUNED_REPO_ROOT}"
+pytorch_assert_cmake_cache_consistent() {
+    local cache="${GPU_TUNED_CMAKE_DIR}/CMakeCache.txt" cached
     [[ -f "${cache}" ]] || return 0
-    repo_root="$(cd "${GPU_TUNED_SELF_DIR}/.." && pwd)"
-    cached="$(sed -n 's/^CMAKE_CUDA_COMPILER:FILEPATH=//p' "${cache}" | head -1)"
-    if [[ -n "${cached}" && "${cached}" != "${CUDA_HOME}/bin/nvcc" ]]; then
-        echo "ERROR: ${GPU_TUNED_CMAKE_DIR} was configured with ${cached}, but CUDA_HOME=${CUDA_HOME}. Remove it first: rm -rf ${GPU_TUNED_CMAKE_DIR}" >&2
-        return 1
-    fi
-    cached="$(sed -n 's/^CMAKE_HOME_DIRECTORY:INTERNAL=//p' "${cache}" | head -1)"
-    if [[ -n "${cached}" && "${cached}" != "${repo_root}" ]]; then
-        echo "ERROR: ${cache} was configured for source tree ${cached}, not ${repo_root} -- looks copied from another checkout. Remove it first: rm -rf ${GPU_TUNED_CMAKE_DIR}" >&2
-        return 1
-    fi
+    gpu_tuned_assert_cmake_cache_consistent "${GPU_TUNED_CMAKE_DIR}" || return 1
     # FindNCCL's cached NCCL_INCLUDE_DIR wins over the environment, so a tree configured against
     # one NCCL silently keeps it after GPU_TUNED_NCCL_DIR (or the pin) changes.
     cached="$(sed -n 's/^NCCL_INCLUDE_DIR:PATH=//p' "${cache}" | head -1)"

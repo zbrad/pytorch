@@ -108,7 +108,7 @@ SO_NAMES_CMAKE="${GPU_TUNED_BUILD_ROOT}/so_names.cmake"
 gpu_tuned_so_names_cmake "${SO_NAMES_CMAKE}"
 export CMAKE_ARGS="-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=${SO_NAMES_CMAKE} -DTUNED_SO_TARGETS=${GPU_TUNED_SO_TARGETS} ${CMAKE_ARGS:-}"
 
-gpu_tuned_assert_cmake_cache_consistent
+pytorch_assert_cmake_cache_consistent
 
 # Release label, allocated once, here (E3/E4): HEAD's UTC commit date plus the lowest unused
 # sequence among this repo's release tags (GPU_TUNED_LABEL_SEQ=0 skips the tag lookup for a dev

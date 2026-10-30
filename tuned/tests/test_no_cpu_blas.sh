@@ -1,5 +1,5 @@
 #!/bin/bash
-# Tests for gpu_tuned_verify_no_cpu_blas (tuned/no_cpu_blas.sh) on throwaway wheel trees with real ELF files.
+# Tests for pytorch_verify_no_cpu_blas (tuned/no_cpu_blas.sh) on throwaway wheel trees with real ELF files.
 # Usage: bash tuned/tests/test_no_cpu_blas.sh   (exit 0 = all pass)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,7 +11,7 @@ W="$(mktemp -d)"; trap 'rm -rf "${W}"' EXIT
 
 check() { # check <name> <want-rc> <stderr-regex or -> <dir>
     local name="$1" want="$2" err_re="$3" dir="$4" err rc ok=1
-    err="$(gpu_tuned_verify_no_cpu_blas "${dir}" 2>&1 >/dev/null)"; rc=$?
+    err="$(pytorch_verify_no_cpu_blas "${dir}" 2>&1 >/dev/null)"; rc=$?
     [[ "${rc}" -eq "${want}" ]] || ok=0
     if [[ "${err_re}" == "-" ]]; then [[ -z "${err}" ]] || ok=0; else grep -qE "${err_re}" <<<"${err}" || ok=0; fi
     if [[ "${ok}" -eq 1 ]]; then PASS=$((PASS+1)); echo "ok   - ${name}"
