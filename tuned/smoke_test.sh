@@ -51,7 +51,7 @@ ok() { echo "  ok:   $*"; }
     # Install into a clean venv and load it once. The venv is kept so the repo's tests run in it.
     export LD_LIBRARY_PATH="${GPU_TUNED_TOOLKIT_LIB_DIR}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
     SMOKE_OUT="$(GPU_TUNED_SMOKE_KEEP=1 GPU_TUNED_SMOKE_EXPECT_CAP="${GPU_TUNED_TORCH_ARCH%a}" \
-        gpu_tuned_smoke_wheel "${WHEEL}" torch torch pytorch_build_info libtorch_cuda-tuned.so 2>&1)"
+        gpu_tuned_smoke_wheel "${WHEEL}" torch torch tuned_build_info libtorch_cuda-tuned.so 2>&1)"
     SMOKE_RC=$?
     printf '%s\n' "${SMOKE_OUT}" | sed 's/^/  | /'
     VENV="$(printf '%s\n' "${SMOKE_OUT}" | sed -n 's/^venv kept: //p' | tail -1)"

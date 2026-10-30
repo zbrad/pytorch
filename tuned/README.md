@@ -65,10 +65,12 @@ linked version.
   `python -m build`; there is no editable torch anywhere. An earlier editable build imported stale
   libraries from the source tree's `torch/lib` when run from the repo root, so every check runs from
   an empty directory against a venv.
-- **H7 (JSON build info) is not adopted.** The wheel still carries the older text stamp
-  (`.pytorch_build_info` in `libtorch_cuda.so`); `vllm/tuned/build.sh` reads it by that name. Migrate
-  with the reader changed first.
-- **The stamp's commit is HEAD at packaging**, not the build commit (`package-info.txt` has both).
+- **H7 (JSON build info), from the release after 20261027.0.** `package.sh` stamps
+  `libtorch_cuda-tuned.so` with `.tuned_build_info` (`gpu_tuned_stamp_lib_json`; `fork.commit` is the
+  build commit, `deps.nccl` what was linked). Releases up to 20261027.0 carry the older text stamp
+  (`.pytorch_build_info`) instead. `flashinfer` and `vllm` `tuned/build.sh` check the installed torch's
+  stamp, so they switch to `gpu_tuned_verify_build_info_json` in the same change that pins a JSON-stamped
+  torch.
 - **F4 (decided 2026-10-16, not implemented):** the wheel's shared objects (`libtorch_cuda.so`,
   `libc10.so`, ...) still ship the stock names. They are to take the generic `-tuned` suffix, with the
   variant and toolkit staying in the version; every consumer that links torch by name is rebuilt. The

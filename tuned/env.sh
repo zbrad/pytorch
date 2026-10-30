@@ -185,9 +185,6 @@ if [ -n "${GPU_TUNED_NCCL_DIR:-}" ]; then
     fi
     GPU_TUNED_NCCL_URL="https://github.com/zbrad/nccl/releases/tag/${GPU_TUNED_NCCL_TAG}"
     export GPU_TUNED_NCCL_VERSION GPU_TUNED_NCCL_TAG GPU_TUNED_NCCL_SOURCE GPU_TUNED_NCCL_URL
-    export GPU_TUNED_BUILD_INFO_DEPS="nccl ${GPU_TUNED_NCCL_VERSION} (${GPU_TUNED_NCCL_SOURCE}, static) ${GPU_TUNED_NCCL_URL}"
-else
-    export GPU_TUNED_BUILD_INFO_DEPS="nccl in-tree (third_party/nccl $(git -C "${GPU_TUNED_SELF_DIR}/../third_party/nccl" describe --tags --long 2>/dev/null || echo unknown))"
 fi
 
 export GPU_TUNED_UPSTREAM_REF
@@ -198,16 +195,3 @@ echo "[tuned/env] GPU_TUNED_VARIANT=${GPU_TUNED_VARIANT} TORCH_CUDA_ARCH_LIST=${
 # sites pass GPU_TUNED_TORCH_ARCH explicitly (the shared version takes it
 # as an arg instead of reading a global, since different repos in the
 # fleet name their arch var differently).
-
-# embed_build_info <so_path> <variant> <package> <version> [hw_label] —
-# thin wrapper over gpu_tuned_embed_build_info (common.sh) that pins the
-# section name to .pytorch_build_info (this repo's pre-existing name,
-# via the explicit [section-name] override -- otherwise the shared
-# function would derive .torch_build_info from the "torch" package arg
-# this repo's call sites pass, a rename), while keeping the real package
-# name ("torch") in the message.
-embed_build_info() {
-    local so_path="$1" variant="$2" package="$3" version="$4" hw_label="$5"
-    gpu_tuned_embed_build_info "${so_path}" "${variant}" "${package}" "${version}" \
-        "${hw_label}" "https://github.com/zbrad/pytorch" "pytorch_build_info"
-}

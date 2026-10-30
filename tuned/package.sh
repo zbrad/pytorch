@@ -112,8 +112,16 @@ echo "OK: no CPU BLAS, LAPACK or MPI in the wheel"
 # a check that cannot run is a failure). Accepted advisories are listed in tuned/audit_allow.txt.
 gpu_tuned_audit_deps "${BUILT}" "${GPU_TUNED_BUILD_ROOT}/dependency-audit.log" || { echo "ERROR: dependency audit failed (see above and ${GPU_TUNED_BUILD_ROOT}/dependency-audit.log, tuned/audit_deps.sh)." >&2; exit 1; }
 gpu_tuned_verify_arch "${WHEEL_SO}" "${GPU_TUNED_TORCH_ARCH}"
-embed_build_info "${WHEEL_SO}" "${GPU_TUNED_VARIANT}" "torch" "${VERSION}" "${GPU_TUNED_HW_LABEL}"
-gpu_tuned_verify_build_info "${WHEEL_SO}" "torch" "${VERSION}" "pytorch_build_info"
+# JSON build info (H7) in .tuned_build_info; fork.commit is the commit the wheel was built from, not HEAD at packaging.
+# deps.nccl is what was linked: the zbrad/nccl release env.sh read from the tarball's BUILD_INFO, or the in-tree submodule.
+if [[ -n "${GPU_TUNED_NCCL_VERSION:-}" ]]; then
+    NCCL_DEP=("deps.nccl.version=${GPU_TUNED_NCCL_VERSION}" "deps.nccl.release=${GPU_TUNED_NCCL_TAG}" "deps.nccl.source=${GPU_TUNED_NCCL_SOURCE}" "deps.nccl.link=static")
+else
+    NCCL_DEP=("deps.nccl.source=$(git -C third_party/nccl describe --tags --long 2>/dev/null || echo unknown)" "deps.nccl.link=in-tree")
+fi
+gpu_tuned_stamp_lib_json "${WHEEL_SO}" torch "${VERSION}" "" \
+    "upstream.declared_version=${BASE_VERSION}" "fork.commit=${BUILD_COMMIT}" "fork.dirty:bool=false" "${NCCL_DEP[@]}" \
+    || { echo "ERROR: could not stamp ${WHEEL_SO#"${UNPACK_DIR}"/}." >&2; exit 1; }
 UNPACKED_CONTENT_DIR="$(find "${UNPACK_DIR}" -maxdepth 1 -mindepth 1 -type d)"
 python3 -m wheel pack "${UNPACKED_CONTENT_DIR}" --dest-dir "${GPU_TUNED_DIST_DIR}"
 WHEEL="$(ls "${GPU_TUNED_DIST_DIR}"/torch-*.whl | head -1)"
