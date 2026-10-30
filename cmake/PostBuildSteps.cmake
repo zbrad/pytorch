@@ -99,6 +99,8 @@ if(WIN32 AND BUILD_PYTHON)
       "${_cuda_bin}/nvrtc*64_*.dll"
       "${_cuda_bin}/nvJitLink_*.dll"
       "${CUDA_TOOLKIT_ROOT_DIR}/bin/cudnn*64_*.dll"
+      "${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib/x64/cupti64_*.dll"
+      "${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib/x64/nvperf_host*.dll"
       "${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib64/cupti64_*.dll"
       "${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib64/nvperf_host*.dll"
     )
@@ -113,12 +115,6 @@ if(WIN32 AND BUILD_PYTHON)
     set(_nvtoolsext "C:/Program Files/NVIDIA Corporation/NvToolsExt/bin/x64/nvToolsExt64_1.dll")
     if(EXISTS "${_nvtoolsext}")
       install(FILES "${_nvtoolsext}" DESTINATION "${TORCH_INSTALL_LIB_DIR}")
-    endif()
-
-    # zlibwapi (needed by some CUDA libraries).
-    if(EXISTS "C:/Windows/System32/zlibwapi.dll")
-      install(FILES "C:/Windows/System32/zlibwapi.dll"
-              DESTINATION "${TORCH_INSTALL_LIB_DIR}")
     endif()
   endif()
 endif()
