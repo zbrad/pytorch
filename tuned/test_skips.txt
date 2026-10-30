@@ -44,6 +44,11 @@ test test_polar_meta_stride_consistency_cpu   known failure (2 dtypes): CPU svd 
 test test_lobpcg_basic_cuda   known failure: the CUDA variant of _test_lobpcg_method also runs a regression block that builds A, B, X with torch.Tensor([...]) (CPU, ignores device); lobpcg then calls linalg.cholesky on CPU (torch/_lobpcg.py:999)
 test test_lobpcg_ortho_cuda   known failure: same CPU torch.Tensor block as test_lobpcg_basic_cuda, via _update_ortho (torch/_lobpcg.py:915)
 test test_preferred_linalg_library_cuda   known failure: builds its reference with torch.linalg.inv(x.cpu()) (test_linalg.py:11727), which needs CPU LAPACK
+# New in v2.15.0 (upstream #199063), added 2026-10-30 (wheel 20261030.1; each fails alone the same way, 4 tests each;
+# their CPU variants already skip, "compiled without Lapack"):
+test test_svd_ill_conditioned   known failure: builds its input with torch.linalg.qr on a CPU randn (test_linalg.py:9789), "Calling torch.geqrf on a CPU tensor requires compiling PyTorch with LAPACK"
+test test_svd_scaled_entries   known failure: builds its input with torch.linalg.qr on a CPU randn (test_linalg.py:9810), same geqrf error
+test test_svd_small_scale   known failure: its reference is torch.linalg.pinv on a CPU tensor (test_linalg.py:9765), "svd: LAPACK library not found in compilation"
 #
 # Hardware/library behavior, not a build effect. Fails every time, alone and in the suite (2026-10-22, wheel
 # 20261022.0, cuBLAS from CUDA 13.4 on sm_121).
