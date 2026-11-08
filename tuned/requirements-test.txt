@@ -3,7 +3,11 @@
 # wheel itself requires come from the wheel. Lower bounds, not pins: upstream's pins in
 # .ci/docker/requirements-ci.txt predate Python 3.14. The resolved versions are written into the
 # test log header, so a result names the tools that produced it.
-pytest
+# pytest 9.2 (pytest-dev/pytest#14758) made Config.cwd_relative_nodeid take a NodeId, and run_test.py's
+# --subprocess collection (common_utils.get_pytest_test_cases) still passes item.nodeid, a str: test_cuda_primary_ctx
+# and test_cuda_trace then end in INTERNALERROR with no test run. Fixed upstream by pytorch/pytorch#202406 (open as of
+# 2026-11-08); drop this upper bound once this checkout has it.
+pytest<9.2  # until pytorch/pytorch#202406 (fix for pytest-dev/pytest#14758's NodeId change) is in this checkout
 pytest-xdist
 pytest-rerunfailures>=10.3
 pytest-flakefinder
