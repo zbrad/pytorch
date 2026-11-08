@@ -66,13 +66,15 @@ test test_call_count_tunableop   not a reliable check either way: counts profile
 # rtx40 only (RTX 4090, sm_89, cuBLAS from CUDA 13.4; wheel 20261108.0, 2026-11-08). Both are upstream tests whose
 # check assumes which kernels run; the results themselves are correct. Each fails alone and in the suite, every
 # rerun. Diagnosed with a profiler and a float64 reference against the wheel:
-#   addmm: bf16 addmm with distinct C and D does take the fast path (no copy kernel), but cuBLASLt picks a split-K
+#   addmm (test added upstream by #191706, "Avoid D2D copy for addmm with distinct C and D"): bf16 addmm with
+#   distinct C and D does take the fast path (no copy kernel), but cuBLASLt picks a split-K
 #   plan for 64x96x32 on sm_89, so the profile shows the GEMM plus cublasLt::splitKreduce_kernel (2 kernels; the
 #   test wants 1). fp16 gets a single-kernel plan and passes.
-#   grouped_gemm 3d_3d bf16: the bf16 fast path is SM90/SM100 only (aten/src/ATen/native/cuda/GroupedBlas.cpp:752),
+#   grouped_gemm 3d_3d bf16 (3d_3d case added upstream by #196075, "[BE] Extend grouped_mm test coverage"): the
+#   bf16 fast path is SM90/SM100 only (aten/src/ATen/native/cuda/GroupedBlas.cpp:752),
 #   so sm_89 runs _grouped_mm_fallback. The test compares gradients with a per-group torch.mm at atol 1e-5 (bitwise
 #   in practice); the two pick different cuBLAS kernels and differ by bf16 rounding (up to 0.047). Against float64,
 #   both are equally accurate (max error 0.062 grouped vs 0.083 torch.mm). The substring matches the 8 CUDA bf16
 #   3d_3d variants and nothing else in the module list.
-test@rtx40 test_addmm_out_distinct_c_and_d_float_out_reduced_input_cuda_bfloat16   counts kernels; cuBLASLt picks split-K on sm_89 (GEMM + splitKreduce = 2, test wants 1); see the note above
-test@rtx40 3d_3d_cuda_bfloat16   test_grouped_gemm 3d_3d bf16 (8 tests): sm_89 uses _grouped_mm_fallback, which differs from torch.mm by bf16 rounding against a bitwise tolerance; see the note above
+test@rtx40 test_addmm_out_distinct_c_and_d_float_out_reduced_input_cuda_bfloat16   upstream #191706; counts kernels; cuBLASLt picks split-K on sm_89 (GEMM + splitKreduce = 2, test wants 1); see the note above
+test@rtx40 3d_3d_cuda_bfloat16   upstream #196075; test_grouped_gemm 3d_3d bf16 (8 tests): sm_89 uses _grouped_mm_fallback, which differs from torch.mm by bf16 rounding against a bitwise tolerance; see the note above
