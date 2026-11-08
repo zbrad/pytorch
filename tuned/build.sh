@@ -129,6 +129,26 @@ rm -f "${GPU_TUNED_BUILD_ROOT}/build-commit" "${GPU_TUNED_BUILD_ROOT}/release-la
 mkdir -p "${GPU_TUNED_WHEEL_DIR}"
 rm -f "${GPU_TUNED_WHEEL_DIR}"/torch-*.whl
 
+# CMake does not fail when the Python layer can't be built: with Python's development headers or
+# NumPy missing it prints "Python dependencies not met. Not compiling with python." as a warning,
+# sets BUILD_PYTHON OFF, and the build still makes a wheel: libtorch with no torch._C, no
+# libtorch_python and no torch/version.py, which `import torch` rejects. First seen on an rtx40
+# WSL node without python3.X-dev (2026-11-08), after a 47-minute build. Check before compiling.
+python3 - <<'PY' || exit 1
+import os, sys, sysconfig
+header = os.path.join(sysconfig.get_paths()["include"], "Python.h")
+problems = []
+if not os.path.isfile(header):
+    problems.append(f"{header} is missing (install python{sys.version_info[0]}.{sys.version_info[1]}-dev)")
+try:
+    import numpy  # noqa: F401
+except ImportError:
+    problems.append("numpy is not importable in the build venv")
+if problems:
+    print("ERROR: PyTorch would build without its Python layer (BUILD_PYTHON OFF): " + "; ".join(problems), file=sys.stderr)
+    sys.exit(1)
+PY
+
 echo "Building pytorch (this will take a long time)..."
 python3 -m build --wheel --no-isolation --outdir "${GPU_TUNED_WHEEL_DIR}"
 
@@ -139,6 +159,21 @@ WHEEL="$(ls "${GPU_TUNED_WHEEL_DIR}"/torch-*.whl 2>/dev/null | head -1)"
     exit 1
 }
 gpu_tuned_check_wheel_label "${WHEEL}"
+# And after: the wheel must carry the Python layer (see the pre-check above for why it can be absent).
+python3 - "${WHEEL}" <<'PY' || exit 1
+import sys, zipfile
+names = zipfile.ZipFile(sys.argv[1]).namelist()
+checks = (
+    ("torch/_C*.so", any(n.startswith("torch/_C") and n.endswith(".so") for n in names)),
+    ("torch/lib/libtorch_python*.so", any(n.startswith("torch/lib/libtorch_python") for n in names)),
+    ("torch/version.py", "torch/version.py" in names),
+)
+missing = [name for name, ok in checks if not ok]
+if missing:
+    print("ERROR: the wheel has no Python layer, missing " + ", ".join(missing)
+          + ". The configure log will say 'Python dependencies not met'.", file=sys.stderr)
+    sys.exit(1)
+PY
 echo "Built wheel: $(basename "${WHEEL}") ($(du -sh "${WHEEL}" | awk '{print $1}'))"
 
 gpu_tuned_assert_versioned_runpath "${GPU_TUNED_CMAKE_DIR}/lib/libtorch_cuda-tuned.so"
