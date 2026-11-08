@@ -4,6 +4,9 @@ tuned/full_test.sh loads this with `-p tuned_skip_reasons` and points GPU_TUNED_
 run_test.py appends its own `-rfEX` after any extra argument, so `-rs` cannot be added from outside;
 a plugin is not overridden. One line per skipped test: <module>\\t<reason>. Without the variable the
 plugin does nothing.
+
+With GPU_TUNED_RAN_LOG set it also appends one line per passed or failed test: <module>\\t<outcome>.
+full_test.sh uses it to fail a module in which no test ran at all (a collection crash is otherwise silent).
 """
 
 from os import environ
@@ -31,7 +34,27 @@ class TunedSkipReasons:
                 handle.writelines(self._lines)
 
 
+class TunedRanTests:
+    def __init__(self, path: str) -> None:
+        self._path = path
+        self._lines: List[str] = []
+
+    def pytest_runtest_logreport(self, report: Any) -> None:
+        if report.when != "call" or report.skipped:
+            return
+        module = report.nodeid.split("::", 1)[0]
+        self._lines.append(f"{module}\t{report.outcome}\n")
+
+    def pytest_sessionfinish(self) -> None:
+        if self._lines:
+            with open(self._path, "a") as handle:
+                handle.writelines(self._lines)
+
+
 def pytest_configure(config: Config) -> None:
     path: Optional[str] = environ.get("GPU_TUNED_SKIP_LOG")
     if path:
         config.pluginmanager.register(TunedSkipReasons(path), "tuned_skip_reasons_state")
+    ran: Optional[str] = environ.get("GPU_TUNED_RAN_LOG")
+    if ran:
+        config.pluginmanager.register(TunedRanTests(ran), "tuned_ran_tests_state")

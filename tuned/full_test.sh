@@ -205,6 +205,7 @@ else
     # extra argument, so -rs cannot be added from here). Its directory is the only thing on PYTHONPATH, for the
     # test subprocesses; this wrapper runs with -I and ignores it.
     export GPU_TUNED_SKIP_LOG="${TESTENV}/skip_reasons.tsv"
+    export GPU_TUNED_RAN_LOG="${TESTENV}/ran_tests.tsv"
     (cd "${REPODIR}/test" && env PYTHONPATH="${REPODIR}/tuned/pytest_plugins" "${PY}" -I -c '
 import __main__, sys
 import torch
@@ -217,6 +218,21 @@ with open("run_test.py", encoding="utf-8") as f:
 exec(code, __main__.__dict__)
 ' "${SKIP_EXPR}" "${MODULES[@]}") 2>&1 | tee -a "${RESULTS_FILE}"
     [[ ${PIPESTATUS[0]} -eq 0 ]] || STATUS=1
+    # run_test.py does not count a pytest INTERNALERROR (e.g. a crash while collecting) as a failure, and such a
+    # module runs no test at all. Fail on either: every module in scope must have run (passed or failed) a test.
+    if grep -q '^INTERNALERROR>' "${RESULTS_FILE}"; then
+        STATUS=1; echo "FAILED: pytest INTERNALERROR in the run above (a module may not have run)" | tee -a "${RESULTS_FILE}"
+    fi
+    {
+        echo ""
+        echo "=== tests run per module (passed or failed; skipped and deselected not counted) ==="
+        for m in "${MODULES[@]}"; do
+            n="$(grep -c "^test/${m}\.py"$'\t' "${GPU_TUNED_RAN_LOG}" 2>/dev/null)"
+            echo "  ${n:-0}  ${m}"
+            [[ "${n:-0}" -gt 0 ]] || { STATUS=1; echo "FAILED: no test ran in ${m}"; }
+        done
+    } | tee -a "${RESULTS_FILE}"
+    grep -q '^FAILED: no test ran in ' "${RESULTS_FILE}" && STATUS=1
     if [[ -s "${GPU_TUNED_SKIP_LOG}" ]]; then
         # Multi-GPU is matched on the reason text, so the count is a lower bound on tests that need more than one GPU.
         MULTI_RE='(multi|multiple|2\+|at least 2|two|more than one).{0,12}(gpu|cuda|device)|world.?size|p2p|(only )?one gpu'
