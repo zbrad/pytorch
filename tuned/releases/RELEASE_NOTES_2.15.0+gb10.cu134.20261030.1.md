@@ -66,6 +66,8 @@ holds for the attached logs of 20261027.0, 20261030.0 and 20261030.1 (all pytest
 and did run both modules. The tuned test tooling now pins `pytest<9.2` and fails a run
 in which any module runs no test.
 
+**Rerun (2026-11-08):** both modules were then run against this release's published wheel (sha256 `f9ddcddf1cf3e5b84f5f940440a4220699c2b8156db8cb52735222182c616210`) on the same GB10 node, with pytest 9.1.1 and the test files of the build commit (`test/` and `torch/testing/` unchanged since 9dba13dc7b3): `test_cuda_primary_ctx` 1 passed, 3 skipped; `test_cuda_trace` 13 passed; no INTERNALERROR. The log is attached as `TEST_RESULTS_gb10_twomod_20261030.1.log`.
+
 Tests not run are listed, each with its reason, in `tuned/test_skips.txt` and in the test log header. They are the
 20261022.0 skips (17 tests that need CPU BLAS or LAPACK, the two `test_cublas_batch_invariance_blackwell` tests, and
 `test_call_count_tunableop`, which counts profiler events by name and gave 0 in one full run while passing alone; cause

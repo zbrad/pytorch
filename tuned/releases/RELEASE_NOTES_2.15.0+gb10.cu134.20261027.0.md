@@ -36,6 +36,8 @@ holds for the attached logs of 20261027.0, 20261030.0 and 20261030.1 (all pytest
 and did run both modules. The tuned test tooling now pins `pytest<9.2` and fails a run
 in which any module runs no test.
 
+**Rerun (2026-11-08):** not rerun for this superseded release; the two modules were run against 20261030.1 instead and passed (see that release).
+
 ## Install
 
 ```
