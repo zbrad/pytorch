@@ -44,14 +44,19 @@ if [[ -n "${STALE_SRC}" ]]; then
 fi
 
 # Tests not needed for tuned builds (tuned/test_skips.txt): whole modules and test-name substrings, each with
-# its reason. They are listed in the log header, never dropped silently.
+# its reason. They are listed in the log header, never dropped silently. A kind of `test@rtx40` (or
+# `module@rtx40,rtx50`) applies only to the named variants; other variants run the test.
 SKIP_MODULES=(); SKIP_TESTS=(); SKIP_LOG=()
 while IFS= read -r line; do
     line="${line%%$'\r'}"
-    [[ "${line}" =~ ^[[:space:]]*(module|test)[[:space:]]+([^[:space:]]+)[[:space:]]*(.*)$ ]] || continue
-    kind="${BASH_REMATCH[1]}"; name="${BASH_REMATCH[2]}"; reason="${BASH_REMATCH[3]}"
+    [[ "${line}" =~ ^[[:space:]]*(module|test)(@([a-z0-9,]+))?[[:space:]]+([^[:space:]]+)[[:space:]]*(.*)$ ]] || continue
+    kind="${BASH_REMATCH[1]}"; only="${BASH_REMATCH[3]}"; name="${BASH_REMATCH[4]}"; reason="${BASH_REMATCH[5]}"
     [[ -n "${reason}" ]] || { echo "ERROR: tuned/test_skips.txt: '${kind} ${name}' has no reason." >&2; exit 1; }
-    [[ "${kind}" == module ]] && SKIP_MODULES+=("${name}") || SKIP_TESTS+=("${name}")
+    if [[ -n "${only}" ]]; then
+        [[ ",${only}," == *",${GPU_TUNED_VARIANT},"* ]] || continue
+        kind="${kind}@${only}"
+    fi
+    [[ "${kind}" == module* ]] && SKIP_MODULES+=("${name}") || SKIP_TESTS+=("${name}")
     SKIP_LOG+=("${kind} ${name}: ${reason}")
 done < <(grep -v '^[[:space:]]*#' tuned/test_skips.txt)
 SKIP_EXPR=""
