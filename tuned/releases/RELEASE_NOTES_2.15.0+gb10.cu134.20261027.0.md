@@ -26,6 +26,16 @@ Scope (from the attached test log): tuned/test_modules.txt (13 modules) minus tu
 Modules: test_cuda test_cuda_primary_ctx test_cuda_trace test_nn test_linalg test_matmul_cuda test_tensor_creation_ops test_torch test_autograd test_reductions test_transformers test_cpp_extensions_jit distributed/test_nccl
 Result: === Full test suite summary: tests, verify_abi and nccl_check passed ===
 
+**Correction (2026-11-08): two of the 13 modules ran no tests.** `test_cuda_primary_ctx` and `test_cuda_trace` did not
+run: the test venv resolved pytest 9.2.0, and the attached log shows `INTERNALERROR> AttributeError: 'str' object has no
+attribute 'path'` for each, while collecting. pytest 9.2 (pytest-dev/pytest#14758) made `Config.cwd_relative_nodeid`
+take a `NodeId`; run_test.py's `--subprocess` collection (`get_pytest_test_cases` in
+`torch/testing/_internal/common_utils.py`) still passes the `str` node id. run_test.py did not count it as a failure, so
+the summary above says passed. The fix upstream is pytorch/pytorch#202406 (open as of 2026-11-08). The same
+holds for the attached logs of 20261027.0, 20261030.0 and 20261030.1 (all pytest 9.2.0); 20261022.0 used pytest 9.1.1
+and did run both modules. The tuned test tooling now pins `pytest<9.2` and fails a run
+in which any module runs no test.
+
 ## Install
 
 ```
