@@ -6,3 +6,4 @@
 # GPU_TUNED_NCCL_BUILTIN=1 ignores this file and builds NCCL in-tree (third_party/nccl) instead;
 # GPU_TUNED_NCCL_DIR=<dir> overrides it with a local extraction.
 gb10 cu134 v0.20261012.0-gb10-cu134
+rtx40 cu134 v0.20261107.0-rtx40-cu134
