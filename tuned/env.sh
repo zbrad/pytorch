@@ -139,6 +139,9 @@ pytorch_assert_cmake_cache_consistent() {
 
 export USE_CUDA=1
 export TORCH_CUDA_ARCH_LIST="${GPU_TUNED_TORCH_ARCH}"
+# Exactly that arch: no per-file sibling arches from cmake/Codegen.cmake's _BUILD_FOR_ADDITIONAL_ARCHS
+# (without it a 12.0a build also embeds an sm_121a RowwiseScaledMM cubin; the single-arch gate refuses it).
+export TORCH_CUDA_EXACT_ARCH_LIST=1
 export MAX_JOBS="${MAX_JOBS:-$(gpu_tuned_jobs)}"
 [ -n "${GPU_TUNED_USE_KLEIDIAI_SME}" ] && export USE_KLEIDIAI_SME="${GPU_TUNED_USE_KLEIDIAI_SME}"
 
