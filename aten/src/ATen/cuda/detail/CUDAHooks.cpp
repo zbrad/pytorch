@@ -213,7 +213,8 @@ static std::pair<std::unique_ptr<at::DynamicLibrary>, at::cuda::NVRTC*> load_nvr
 #else
 static std::pair<std::unique_ptr<at::DynamicLibrary>, at::cuda::NVRTC*> load_nvrtc() {
 #if defined(_WIN32)
-  std::string libcaffe2_nvrtc = "caffe2_nvrtc.dll";
+  // zbrad/pytorch tuned-builds: shared objects carry the -tuned suffix (tuned/ARCHITECTURE F4)
+  std::string libcaffe2_nvrtc = "caffe2_nvrtc-tuned.dll";
 #elif defined(__APPLE__)
   std::string libcaffe2_nvrtc = "libcaffe2_nvrtc.dylib";
 #else

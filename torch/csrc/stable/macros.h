@@ -57,7 +57,8 @@ HIDDEN_NAMESPACE_BEGIN(torch, stable, detail)
   // export the stable shims. Today these live in torch_cpu.dll and
   // torch_cuda.dll, so try each in turn. GetModuleHandleW does not take a
   // reference on the returned handle.
-  const wchar_t* dlls[] = {L"torch_cpu.dll", L"torch_cuda.dll"};
+  // zbrad/pytorch tuned-builds: shared objects carry the -tuned suffix (tuned/ARCHITECTURE F4)
+  const wchar_t* dlls[] = {L"torch_cpu-tuned.dll", L"torch_cuda-tuned.dll"};
   for (const wchar_t* dll : dlls) {
     HMODULE handle = GetModuleHandleW(dll);
     if (handle != nullptr) {

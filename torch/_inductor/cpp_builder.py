@@ -1448,7 +1448,7 @@ def _get_torch_related_args(
             # zbrad/pytorch tuned-builds: shared objects carry the -tuned suffix (tuned-common ARCHITECTURE F4)
             libraries.extend(["torch-tuned", "torch_cpu-tuned"])
             if _IS_WINDOWS:
-                libraries.append("c10")
+                libraries.append("c10-tuned")
             if not aot_mode:
                 libraries.append("torch_python-tuned")
     else:

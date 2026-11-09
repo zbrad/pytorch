@@ -2643,23 +2643,24 @@ def _prepare_ldflags(extra_ldflags, with_cuda, with_sycl, verbose, is_standalone
     if IS_WINDOWS:
         python_lib_path = os.path.join(sys.base_exec_prefix, 'libs')
 
-        extra_ldflags.append('c10.lib')
+        # zbrad/pytorch tuned-builds: shared objects carry the -tuned suffix (tuned-common ARCHITECTURE F4)
+        extra_ldflags.append('c10-tuned.lib')
         if with_cuda:
-            extra_ldflags.append('c10_hip.lib' if IS_HIP_EXTENSION else 'c10_cuda.lib')
+            extra_ldflags.append('c10_hip.lib' if IS_HIP_EXTENSION else 'c10_cuda-tuned.lib')
         if with_sycl:
             extra_ldflags.append('c10_xpu.lib')
-        extra_ldflags.append('torch_cpu.lib')
+        extra_ldflags.append('torch_cpu-tuned.lib')
         if with_cuda:
-            extra_ldflags.append('torch_hip.lib' if IS_HIP_EXTENSION else 'torch_cuda.lib')
+            extra_ldflags.append('torch_hip.lib' if IS_HIP_EXTENSION else 'torch_cuda-tuned.lib')
             # /INCLUDE is used to ensure torch_cuda is linked against in a project that relies on it.
             # Related issue: https://github.com/pytorch/pytorch/issues/31611
             extra_ldflags.append('-INCLUDE:?warp_size@cuda@at@@YAHXZ')
         if with_sycl:
             extra_ldflags.append('torch_xpu.lib')
-        extra_ldflags.append('torch.lib')
+        extra_ldflags.append('torch-tuned.lib')
         extra_ldflags.append(f'/LIBPATH:{TORCH_LIB_PATH}')
         if not is_standalone:
-            extra_ldflags.append('torch_python.lib')
+            extra_ldflags.append('torch_python-tuned.lib')
             extra_ldflags.append(f'/LIBPATH:{python_lib_path}')
 
     else:
