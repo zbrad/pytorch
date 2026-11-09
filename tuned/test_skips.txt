@@ -2,6 +2,7 @@
 # entry per line:
 #   module <path-relative-to-test/, no .py>   <reason>
 #   test   <substring of a test name>          <reason>    (deselected everywhere, as -k "not ...")
+#   test   (<a -k expression, no nested parentheses>)  <reason>    (where a substring would match too much)
 # A kind of `test@<variant>[,<variant>...]` (or `module@...`) applies only to those variants (GPU_TUNED_VARIANT);
 # every other variant still runs the test.
 # This list is part of the recorded test scope (docs/ARCHITECTURE.md G3): an entry here is a decision, not a
@@ -62,6 +63,16 @@ test test_cublas_batch_invariance_blackwell_batched_False   known failure (2 tes
 #
 # Not a reliable test.
 test test_call_count_tunableop   not a reliable check either way: counts profiler events whose name contains "kernel" (a cutlass::Kernel2<...> event does not match). Passes alone and with its class, and TunableOp does pick 3 kernels there; got 0 in the 2026-10-22 full run (cause not found)
+#
+# rtx50 only, and really the test HOST's CPU, not the GPU (2026-11-09, wheel 20261109.0): the rtx50 tests run on an
+# Intel Core Ultra 9 275HX (Arrow Lake), which has the avx2_vnni_2 ISA, and oneDNN refuses bf16/fp16 backward there:
+# "RuntimeError: DNNL does not support bf16/f16 backward on the platform with avx2_vnni_2". All three are CPU tests and
+# failed 3 of 3 runs; the rtx40 host's CPU lacks avx2_vnni_2 and passes them. The same limitation applies to every
+# wheel, ours and upstream's, on such a CPU. Upstream: issue #148861 (Lunar Lake, closed); fix in review as PR
+# #200055 "Add fallback from oneDNN for GELU and Conv backwards for avx2_vnni_2 ISA" (open as of 2026-11-09). Drop
+# these entries once this checkout has #200055. The skip is by variant only because the rtx50 tests always run there.
+test@rtx50 test_activations_bfloat16_half_cpu   CPU (2 tests: bf16, fp16): oneDNN refuses bf16/fp16 backward on avx2_vnni_2 (test host's CPU); upstream #148861, fix PR #200055; see the note above
+test@rtx50 (TestNN and test_no_grad and not test_no_grad_)   CPU: TestNN::test_no_grad only; oneDNN refuses bf16/fp16 backward on avx2_vnni_2 (test host's CPU); upstream #148861, fix PR #200055; see the note above
 #
 # rtx40 only (RTX 4090, sm_89, cuBLAS from CUDA 13.4; wheel 20261108.0, 2026-11-08). Both are upstream tests whose
 # check assumes which kernels run; the results themselves are correct. Each fails alone and in the suite, every

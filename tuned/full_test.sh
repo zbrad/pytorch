@@ -45,11 +45,13 @@ fi
 
 # Tests not needed for tuned builds (tuned/test_skips.txt): whole modules and test-name substrings, each with
 # its reason. They are listed in the log header, never dropped silently. A kind of `test@rtx40` (or
-# `module@rtx40,rtx50`) applies only to the named variants; other variants run the test.
+# `module@rtx40,rtx50`) applies only to the named variants; other variants run the test. A test name may also be a
+# parenthesized -k expression, e.g. `(TestNN and test_no_grad and not test_no_grad_)`, where a substring is too broad.
 SKIP_MODULES=(); SKIP_TESTS=(); SKIP_LOG=()
+SKIP_LINE_RE='^[[:space:]]*(module|test)(@([a-z0-9,]+))?[[:space:]]+(\([^()]+\)|[^[:space:]]+)[[:space:]]*(.*)$'
 while IFS= read -r line; do
     line="${line%%$'\r'}"
-    [[ "${line}" =~ ^[[:space:]]*(module|test)(@([a-z0-9,]+))?[[:space:]]+([^[:space:]]+)[[:space:]]*(.*)$ ]] || continue
+    [[ "${line}" =~ ${SKIP_LINE_RE} ]] || continue
     kind="${BASH_REMATCH[1]}"; only="${BASH_REMATCH[3]}"; name="${BASH_REMATCH[4]}"; reason="${BASH_REMATCH[5]}"
     [[ -n "${reason}" ]] || { echo "ERROR: tuned/test_skips.txt: '${kind} ${name}' has no reason." >&2; exit 1; }
     if [[ -n "${only}" ]]; then
