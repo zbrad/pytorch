@@ -67,29 +67,14 @@ print(next(l.split()[-1] for l in open("/proc/self/maps") if "libtorch_cuda-tune
         [[ "${LIB}" == "${VENV}/"* ]] && ok "libtorch_cuda-tuned.so is mapped from the clean venv: ${LIB}" || fail "libtorch_cuda-tuned.so maps from '${LIB}', not from ${VENV}"
         # Our libraries keep torch's stock names, so prove they cannot be mistaken for stock ones in this
         # process: every libtorch*/libc10* mapped is the venv's, and no library name is mapped from two
-        # different files (a second libc10.so, say, from LD_LIBRARY_PATH or another torch).
-        NAMES="$(cd "${WORK}" && env -u PYTHONPATH "${PY}" -I -c '
-import collections, os, sys
-import torch
-torch.zeros(1, device="cuda")
-by = collections.defaultdict(set)
-for line in open("/proc/self/maps"):
-    p = line.split()[-1] if line.split() else ""
-    if ".so" in p and p.startswith("/"):
-        by[os.path.basename(p).split(".so")[0]].add(os.path.realpath(p))
-# WSL2 maps libcuda twice: the /usr/lib/wsl/lib/ loader shim, which loads the WSL libdxcore.so and then the
-# driver-store file (/usr/lib/wsl/drivers/<inf dir>/). One such pair, with libdxcore mapped from
-# /usr/lib/wsl/lib/, and nothing else, counts as one library.
-def wsl_pair(v):
-    dx = by.get("libdxcore", set())
-    return (len(v) == 2 and sum(x.startswith("/usr/lib/wsl/lib/") for x in v) == 1
-            and sum(x.startswith("/usr/lib/wsl/drivers/") for x in v) == 1
-            and len(dx) == 1 and next(iter(dx)).startswith("/usr/lib/wsl/lib/"))
-bad = [f"{k}: {sorted(v)}" for k, v in by.items() if len(v) > 1 and not wsl_pair(v)]
-bad += [f"{k} from {sorted(v)}" for k, v in by.items() if k.startswith(("libtorch", "libc10")) and not all(x.startswith(sys.prefix) for x in v)]
-print("\n".join(bad) if bad else "clean")
-' 2>&1 | tail -5)"
-        [[ "${NAMES}" == clean ]] && ok "every libtorch*/libc10* is the venv's and no library name maps from two files" || fail "library identity: ${NAMES}"
+        # different files (a second libc10.so, say, from LD_LIBRARY_PATH or another torch). Strict: even
+        # byte-identical copies fail; one WSL2 libcuda stub + driver-store pair counts as one library
+        # (gpu_tuned_check_mapped_libs in tuned-common).
+        if NAMES="$(gpu_tuned_check_mapped_libs "${PY}" strict libtorch,libc10 'import torch; torch.zeros(1, device="cuda")')"; then
+            ok "every libtorch*/libc10* is the venv's and no library name maps from two files"
+        else
+            fail "library identity: ${NAMES}"
+        fi
 
         # Three real tests, run the way test/run_test.py runs them (python -bb <file> -k <name>) from
         # test/, so sys.path[0] is test/ and torch is the venv's, never the source tree's.
