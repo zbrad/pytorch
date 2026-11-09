@@ -87,5 +87,17 @@ test@rtx50 (TestNN and test_no_grad and not test_no_grad_)   CPU: TestNN::test_n
 #   in practice); the two pick different cuBLAS kernels and differ by bf16 rounding (up to 0.047). Against float64,
 #   both are equally accurate (max error 0.062 grouped vs 0.083 torch.mm). The substring matches the 8 CUDA bf16
 #   3d_3d variants and nothing else in the module list.
+#   Six more cases of the same test fail the same way (found in the 2026-11-08 full run after the 3d_3d skip; all 14
+#   failed 3 of 3 runs of every CUDA test_grouped_gemm case, the other 196 passed): strided, column-major a, bf16, the
+#   2d_2d/2d_3d/3d_2d "regular" shapes (also from #196075). Against float64, grouped_mm's a.grad error is 0.058-0.062
+#   and the torch.mm reference's 0.075-0.089; they differ by up to 0.125 (one bf16 ulp at those magnitudes). Listed by
+#   full name: a shorter substring would also deselect the passing strided_False and row-major-a variants.
+#   Tooling: /home/zbrad/scratch/pt-invest/{diag.py,diag2.py,grouped_all.sh} on ven1-wsl (not in the repo).
 test@rtx40 test_addmm_out_distinct_c_and_d_float_out_reduced_input_cuda_bfloat16   upstream #191706; counts kernels; cuBLASLt picks split-K on sm_89 (GEMM + splitKreduce = 2, test wants 1); see the note above
 test@rtx40 3d_3d_cuda_bfloat16   upstream #196075; test_grouped_gemm 3d_3d bf16 (8 tests): sm_89 uses _grouped_mm_fallback, which differs from torch.mm by bf16 rounding against a bitwise tolerance; see the note above
+test@rtx40 test_grouped_gemm_strided_True_a_row_major_False_b_row_major_False_2d_2d_regular_cuda_bfloat16   upstream #196075; _grouped_mm_fallback vs torch.mm bf16 rounding; see the note above
+test@rtx40 test_grouped_gemm_strided_True_a_row_major_False_b_row_major_True_2d_2d_regular_cuda_bfloat16   upstream #196075; _grouped_mm_fallback vs torch.mm bf16 rounding; see the note above
+test@rtx40 test_grouped_gemm_strided_True_a_row_major_False_b_row_major_False_2d_3d_regular_cuda_bfloat16   upstream #196075; _grouped_mm_fallback vs torch.mm bf16 rounding; see the note above
+test@rtx40 test_grouped_gemm_strided_True_a_row_major_False_b_row_major_True_2d_3d_regular_cuda_bfloat16   upstream #196075; _grouped_mm_fallback vs torch.mm bf16 rounding; see the note above
+test@rtx40 test_grouped_gemm_strided_True_a_row_major_False_b_row_major_False_3d_2d_regular_cuda_bfloat16   upstream #196075; _grouped_mm_fallback vs torch.mm bf16 rounding; see the note above
+test@rtx40 test_grouped_gemm_strided_True_a_row_major_False_b_row_major_True_3d_2d_regular_cuda_bfloat16   upstream #196075; _grouped_mm_fallback vs torch.mm bf16 rounding; see the note above
