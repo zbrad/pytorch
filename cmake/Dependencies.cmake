@@ -1674,6 +1674,10 @@ if(NOT INTERN_BUILD_MOBILE)
   endif(UNIX AND NOT APPLE)
 
   if(UNIX)
+    # CHECK_FUNCTION_EXISTS is otherwise defined only as a side effect of an earlier find module (FindBLAS,
+    # FindLAPACK, FindMKL); a build that hides all three (CMAKE_DISABLE_FIND_PACKAGE_*) failed here with
+    # "Unknown CMake command". Including it is a no-op when it is already loaded.
+    include(CheckFunctionExists)
     set(CMAKE_EXTRA_INCLUDE_FILES "sys/mman.h")
     CHECK_FUNCTION_EXISTS(mmap HAVE_MMAP)
     if(HAVE_MMAP)
