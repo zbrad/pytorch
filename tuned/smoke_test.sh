@@ -77,7 +77,15 @@ for line in open("/proc/self/maps"):
     p = line.split()[-1] if line.split() else ""
     if ".so" in p and p.startswith("/"):
         by[os.path.basename(p).split(".so")[0]].add(os.path.realpath(p))
-bad = [f"{k}: {sorted(v)}" for k, v in by.items() if len(v) > 1]
+# WSL2 maps libcuda twice: the /usr/lib/wsl/lib/ loader shim, which loads the WSL libdxcore.so and then the
+# driver-store file (/usr/lib/wsl/drivers/<inf dir>/). One such pair, with libdxcore mapped from
+# /usr/lib/wsl/lib/, and nothing else, counts as one library.
+def wsl_pair(v):
+    dx = by.get("libdxcore", set())
+    return (len(v) == 2 and sum(x.startswith("/usr/lib/wsl/lib/") for x in v) == 1
+            and sum(x.startswith("/usr/lib/wsl/drivers/") for x in v) == 1
+            and len(dx) == 1 and next(iter(dx)).startswith("/usr/lib/wsl/lib/"))
+bad = [f"{k}: {sorted(v)}" for k, v in by.items() if len(v) > 1 and not wsl_pair(v)]
 bad += [f"{k} from {sorted(v)}" for k, v in by.items() if k.startswith(("libtorch", "libc10")) and not all(x.startswith(sys.prefix) for x in v)]
 print("\n".join(bad) if bad else "clean")
 ' 2>&1 | tail -5)"
