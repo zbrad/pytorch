@@ -84,12 +84,16 @@ if(WIN32 AND BUILD_PYTHON)
   # CUDA runtime DLLs - only for CUDA builds.
   if(USE_CUDA AND CUDA_TOOLKIT_ROOT_DIR)
     # CUDA 13+ moves DLLs to bin/x64; toolkits for ARM64 hosts also have bin/arm64.
+    # CUPTI follows the same layout: extras/CUPTI/lib/<arch> on CUDA 13+, extras/CUPTI/lib64 before.
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$" AND IS_DIRECTORY "${CUDA_TOOLKIT_ROOT_DIR}/bin/arm64")
       set(_cuda_bin "${CUDA_TOOLKIT_ROOT_DIR}/bin/arm64")
+      set(_cupti_lib "${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib/arm64")
     elseif(IS_DIRECTORY "${CUDA_TOOLKIT_ROOT_DIR}/bin/x64")
       set(_cuda_bin "${CUDA_TOOLKIT_ROOT_DIR}/bin/x64")
+      set(_cupti_lib "${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib/x64")
     else()
       set(_cuda_bin "${CUDA_TOOLKIT_ROOT_DIR}/bin")
+      set(_cupti_lib "${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib64")
     endif()
     set(_cuda_dll_patterns
       "${_cuda_bin}/cusparse*64_*.dll"
@@ -101,10 +105,8 @@ if(WIN32 AND BUILD_PYTHON)
       "${_cuda_bin}/nvrtc*64_*.dll"
       "${_cuda_bin}/nvJitLink_*.dll"
       "${CUDA_TOOLKIT_ROOT_DIR}/bin/cudnn*64_*.dll"
-      "${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib/x64/cupti64_*.dll"
-      "${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib/x64/nvperf_host*.dll"
-      "${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib64/cupti64_*.dll"
-      "${CUDA_TOOLKIT_ROOT_DIR}/extras/CUPTI/lib64/nvperf_host*.dll"
+      "${_cupti_lib}/cupti64_*.dll"
+      "${_cupti_lib}/nvperf_host*.dll"
     )
     foreach(_pattern ${_cuda_dll_patterns})
       file(GLOB _dlls "${_pattern}")
