@@ -61,7 +61,8 @@ set(TORCH_INCLUDE_DIRS
 if(@BUILD_SHARED_LIBS@)
   find_dependency(Caffe2 PATHS ${CMAKE_CURRENT_LIST_DIR}/../Caffe2)
   set(TORCH_LIBRARIES torch ${Caffe2_MAIN_LIBS})
-  append_torchlib_if_found(c10)
+  # zbrad/pytorch tuned-builds: shared objects carry the -tuned suffix (tuned/ARCHITECTURE F4)
+  append_torchlib_if_found(c10-tuned)
 else()
   add_library(torch STATIC IMPORTED) # set imported_location at the bottom
   #library need whole archive
@@ -121,7 +122,8 @@ endif()
 
 if(@USE_CUDA@)
   if(MSVC)
-    find_library(CAFFE2_NVRTC_LIBRARY caffe2_nvrtc PATHS "${TORCH_INSTALL_PREFIX}/lib")
+    # zbrad/pytorch tuned-builds: caffe2_nvrtc ships as caffe2_nvrtc-tuned (tuned/ARCHITECTURE F4)
+    find_library(CAFFE2_NVRTC_LIBRARY caffe2_nvrtc-tuned PATHS "${TORCH_INSTALL_PREFIX}/lib")
     list(APPEND TORCH_CUDA_LIBRARIES ${CAFFE2_NVRTC_LIBRARY})
   else()
     set(TORCH_CUDA_LIBRARIES ${CUDA_NVRTC_LIB})
