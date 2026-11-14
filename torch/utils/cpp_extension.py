@@ -427,6 +427,11 @@ MSVC_IGNORE_CUDAFE_WARNINGS = [
     'dll_interface_conflict_dllexport_assumed'
 ]
 
+# zbrad tuned: the host-compiler flags torch's own build gives nvcc on Windows (CMAKE_CUDA_FLAGS in
+# CMakeLists.txt). Without /Zc:preprocessor, CUDA 13's CCCL headers stop with C1189 ("MSVC/cl.exe with
+# traditional preprocessor is used"), so no CUDA extension that includes them builds.
+MSVC_NVCC_HOST_FLAGS = ['/Zc:__cplusplus', '/Zc:preprocessor']
+
 COMMON_NVCC_FLAGS = [
     '-D__CUDA_NO_HALF_OPERATORS__',
     '-D__CUDA_NO_HALF_CONVERSIONS__',
@@ -1174,6 +1179,8 @@ class BuildExtension(_LazyBuildExt):
                             cflags = win_cuda_flags(cflags) + ['-std=c++20', '--use-local-env']
                             for ignore_warning in MSVC_IGNORE_CUDAFE_WARNINGS:
                                 cflags = ['-Xcudafe', '--diag_suppress=' + ignore_warning] + cflags
+                            for flag in MSVC_NVCC_HOST_FLAGS:
+                                cflags = ['-Xcompiler', flag] + cflags
                         for flag in COMMON_MSVC_FLAGS:
                             cflags = ['-Xcompiler', flag] + cflags
                         cmd = _wrap_compiler([nvcc, '-c', src, '-o', obj] + include_list + cflags)
@@ -1269,6 +1276,9 @@ class BuildExtension(_LazyBuildExt):
                     for ignore_warning in MSVC_IGNORE_CUDAFE_WARNINGS:
                         cuda_cflags.append('-Xcudafe')
                         cuda_cflags.append('--diag_suppress=' + ignore_warning)
+                    for flag in MSVC_NVCC_HOST_FLAGS:
+                        cuda_cflags.append('-Xcompiler')
+                        cuda_cflags.append(flag)
                 cuda_cflags.extend(pp_opts)
                 if isinstance(extra_postargs, dict):
                     cuda_post_cflags = extra_postargs['nvcc']
@@ -3093,7 +3103,7 @@ def _write_ninja_file_to_build_library(path,
     elif with_cuda:
         cuda_flags = common_cflags + COMMON_NVCC_FLAGS + _get_cuda_arch_flags(extra_cuda_cflags)
         if IS_WINDOWS:
-            for flag in COMMON_MSVC_FLAGS:
+            for flag in COMMON_MSVC_FLAGS + MSVC_NVCC_HOST_FLAGS:
                 cuda_flags = ['-Xcompiler', flag] + cuda_flags
             for ignore_warning in MSVC_IGNORE_CUDAFE_WARNINGS:
                 cuda_flags = ['-Xcudafe', '--diag_suppress=' + ignore_warning] + cuda_flags
